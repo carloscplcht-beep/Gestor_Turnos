@@ -1,0 +1,7 @@
+Adjunta a Codex los tres archivos principales:
+1. JORNADA_SESCAM_2019.md
+2. ponderacion_jornada_sescam_2019.csv
+3. ponderacion_jornada_sescam_2019.json
+
+El ZIP contiene los tres archivos preparados.
+La tabla va de 0 a 145 noches (146 filas), conforme al Anexo I del PDF.

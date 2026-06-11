@@ -1,0 +1,13 @@
+{
+  "name": "gestor-turnos-enfermeria",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate:normativa": "node tools/generar-normativa-js.mjs",
+    "validate:tabla": "node tools/validar-tabla-ponderacion.mjs",
+    "test": "node tests/domain.test.mjs",
+    "build": "node tools/build-dist.mjs",
+    "verify": "npm run generate:normativa && npm run validate:tabla && npm test && npm run build"
+  }
+}

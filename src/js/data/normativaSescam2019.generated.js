@@ -1,0 +1,1491 @@
+// Generated from normativa_tmp/ponderacion_jornada_sescam_2019.json.
+// Do not edit manually; regenerate from the verified normative JSON source.
+export const PERFIL_NORMATIVO_SESCAM_2019 = {
+  "schemaVersion": "1.0",
+  "id": "sescam-jornada-2019",
+  "nombre": "SESCAM - Jornada vigente desde 01/01/2019",
+  "fuente": {
+    "documento": "Resolución de 28 de diciembre de 2018",
+    "archivo": "jornada-2020.pdf",
+    "efectosDesde": "2019-01-01",
+    "anexo": "Anexo I - Ponderación jornada",
+    "paginasTabla": [
+      11,
+      12,
+      13,
+      14
+    ],
+    "nota": "Transcripción manual verificada visualmente. La tabla contiene 146 filas, de 0 a 145 noches."
+  },
+  "jornadasFijas": {
+    "turnoDiurno": 1519,
+    "turnoNocturno": 1450,
+    "turnoRotatorioReferencia": 1491,
+    "nochesReferenciaRotatorio": 42,
+    "atencionContinuadaAtencionPrimaria": 1500,
+    "unidadMovilEmergenciasCentroCoordinador": 1488,
+    "suap": 1488
+  },
+  "tablaPonderacion": [
+    {
+      "numero_noches": 0,
+      "libre_salida_noches": 0,
+      "mananas_tardes": 217,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 110,
+      "jornada_teorica": 1519,
+      "jornada_realizar": 1519
+    },
+    {
+      "numero_noches": 1,
+      "libre_salida_noches": 1,
+      "mananas_tardes": 215,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 110,
+      "jornada_teorica": 1518,
+      "jornada_realizar": 1515
+    },
+    {
+      "numero_noches": 2,
+      "libre_salida_noches": 2,
+      "mananas_tardes": 214,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 109,
+      "jornada_teorica": 1518,
+      "jornada_realizar": 1518
+    },
+    {
+      "numero_noches": 3,
+      "libre_salida_noches": 3,
+      "mananas_tardes": 212,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 109,
+      "jornada_teorica": 1517,
+      "jornada_realizar": 1514
+    },
+    {
+      "numero_noches": 4,
+      "libre_salida_noches": 4,
+      "mananas_tardes": 211,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 108,
+      "jornada_teorica": 1516,
+      "jornada_realizar": 1517
+    },
+    {
+      "numero_noches": 5,
+      "libre_salida_noches": 5,
+      "mananas_tardes": 209,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 108,
+      "jornada_teorica": 1516,
+      "jornada_realizar": 1513
+    },
+    {
+      "numero_noches": 6,
+      "libre_salida_noches": 6,
+      "mananas_tardes": 208,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 107,
+      "jornada_teorica": 1515,
+      "jornada_realizar": 1516
+    },
+    {
+      "numero_noches": 7,
+      "libre_salida_noches": 7,
+      "mananas_tardes": 206,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 107,
+      "jornada_teorica": 1514,
+      "jornada_realizar": 1512
+    },
+    {
+      "numero_noches": 8,
+      "libre_salida_noches": 8,
+      "mananas_tardes": 205,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 106,
+      "jornada_teorica": 1514,
+      "jornada_realizar": 1515
+    },
+    {
+      "numero_noches": 9,
+      "libre_salida_noches": 9,
+      "mananas_tardes": 203,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 106,
+      "jornada_teorica": 1513,
+      "jornada_realizar": 1511
+    },
+    {
+      "numero_noches": 10,
+      "libre_salida_noches": 10,
+      "mananas_tardes": 202,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 105,
+      "jornada_teorica": 1512,
+      "jornada_realizar": 1514
+    },
+    {
+      "numero_noches": 11,
+      "libre_salida_noches": 11,
+      "mananas_tardes": 200,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 105,
+      "jornada_teorica": 1512,
+      "jornada_realizar": 1510
+    },
+    {
+      "numero_noches": 12,
+      "libre_salida_noches": 12,
+      "mananas_tardes": 199,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 104,
+      "jornada_teorica": 1511,
+      "jornada_realizar": 1513
+    },
+    {
+      "numero_noches": 13,
+      "libre_salida_noches": 13,
+      "mananas_tardes": 197,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 104,
+      "jornada_teorica": 1510,
+      "jornada_realizar": 1509
+    },
+    {
+      "numero_noches": 14,
+      "libre_salida_noches": 14,
+      "mananas_tardes": 196,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 103,
+      "jornada_teorica": 1510,
+      "jornada_realizar": 1512
+    },
+    {
+      "numero_noches": 15,
+      "libre_salida_noches": 15,
+      "mananas_tardes": 194,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 103,
+      "jornada_teorica": 1509,
+      "jornada_realizar": 1508
+    },
+    {
+      "numero_noches": 16,
+      "libre_salida_noches": 16,
+      "mananas_tardes": 193,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 102,
+      "jornada_teorica": 1508,
+      "jornada_realizar": 1511
+    },
+    {
+      "numero_noches": 17,
+      "libre_salida_noches": 17,
+      "mananas_tardes": 191,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 102,
+      "jornada_teorica": 1508,
+      "jornada_realizar": 1507
+    },
+    {
+      "numero_noches": 18,
+      "libre_salida_noches": 18,
+      "mananas_tardes": 190,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 101,
+      "jornada_teorica": 1507,
+      "jornada_realizar": 1510
+    },
+    {
+      "numero_noches": 19,
+      "libre_salida_noches": 19,
+      "mananas_tardes": 188,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 101,
+      "jornada_teorica": 1506,
+      "jornada_realizar": 1506
+    },
+    {
+      "numero_noches": 20,
+      "libre_salida_noches": 20,
+      "mananas_tardes": 187,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 100,
+      "jornada_teorica": 1506,
+      "jornada_realizar": 1509
+    },
+    {
+      "numero_noches": 21,
+      "libre_salida_noches": 21,
+      "mananas_tardes": 185,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 100,
+      "jornada_teorica": 1505,
+      "jornada_realizar": 1505
+    },
+    {
+      "numero_noches": 22,
+      "libre_salida_noches": 22,
+      "mananas_tardes": 183,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 100,
+      "jornada_teorica": 1504,
+      "jornada_realizar": 1501
+    },
+    {
+      "numero_noches": 23,
+      "libre_salida_noches": 23,
+      "mananas_tardes": 182,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 99,
+      "jornada_teorica": 1504,
+      "jornada_realizar": 1504
+    },
+    {
+      "numero_noches": 24,
+      "libre_salida_noches": 24,
+      "mananas_tardes": 180,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 99,
+      "jornada_teorica": 1503,
+      "jornada_realizar": 1500
+    },
+    {
+      "numero_noches": 25,
+      "libre_salida_noches": 25,
+      "mananas_tardes": 179,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 98,
+      "jornada_teorica": 1502,
+      "jornada_realizar": 1503
+    },
+    {
+      "numero_noches": 26,
+      "libre_salida_noches": 26,
+      "mananas_tardes": 177,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 98,
+      "jornada_teorica": 1501,
+      "jornada_realizar": 1499
+    },
+    {
+      "numero_noches": 27,
+      "libre_salida_noches": 27,
+      "mananas_tardes": 176,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 97,
+      "jornada_teorica": 1501,
+      "jornada_realizar": 1502
+    },
+    {
+      "numero_noches": 28,
+      "libre_salida_noches": 28,
+      "mananas_tardes": 174,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 97,
+      "jornada_teorica": 1500,
+      "jornada_realizar": 1498
+    },
+    {
+      "numero_noches": 29,
+      "libre_salida_noches": 29,
+      "mananas_tardes": 173,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 96,
+      "jornada_teorica": 1499,
+      "jornada_realizar": 1501
+    },
+    {
+      "numero_noches": 30,
+      "libre_salida_noches": 30,
+      "mananas_tardes": 171,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 96,
+      "jornada_teorica": 1498,
+      "jornada_realizar": 1497
+    },
+    {
+      "numero_noches": 31,
+      "libre_salida_noches": 31,
+      "mananas_tardes": 170,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 95,
+      "jornada_teorica": 1498,
+      "jornada_realizar": 1500
+    },
+    {
+      "numero_noches": 32,
+      "libre_salida_noches": 32,
+      "mananas_tardes": 168,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 95,
+      "jornada_teorica": 1497,
+      "jornada_realizar": 1496
+    },
+    {
+      "numero_noches": 33,
+      "libre_salida_noches": 33,
+      "mananas_tardes": 167,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 94,
+      "jornada_teorica": 1497,
+      "jornada_realizar": 1499
+    },
+    {
+      "numero_noches": 34,
+      "libre_salida_noches": 34,
+      "mananas_tardes": 165,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 94,
+      "jornada_teorica": 1496,
+      "jornada_realizar": 1495
+    },
+    {
+      "numero_noches": 35,
+      "libre_salida_noches": 35,
+      "mananas_tardes": 164,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 93,
+      "jornada_teorica": 1495,
+      "jornada_realizar": 1498
+    },
+    {
+      "numero_noches": 36,
+      "libre_salida_noches": 36,
+      "mananas_tardes": 162,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 93,
+      "jornada_teorica": 1495,
+      "jornada_realizar": 1494
+    },
+    {
+      "numero_noches": 37,
+      "libre_salida_noches": 37,
+      "mananas_tardes": 161,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 92,
+      "jornada_teorica": 1494,
+      "jornada_realizar": 1497
+    },
+    {
+      "numero_noches": 38,
+      "libre_salida_noches": 38,
+      "mananas_tardes": 159,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 92,
+      "jornada_teorica": 1493,
+      "jornada_realizar": 1493
+    },
+    {
+      "numero_noches": 39,
+      "libre_salida_noches": 39,
+      "mananas_tardes": 158,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 91,
+      "jornada_teorica": 1493,
+      "jornada_realizar": 1496
+    },
+    {
+      "numero_noches": 40,
+      "libre_salida_noches": 40,
+      "mananas_tardes": 156,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 91,
+      "jornada_teorica": 1492,
+      "jornada_realizar": 1492
+    },
+    {
+      "numero_noches": 41,
+      "libre_salida_noches": 41,
+      "mananas_tardes": 154,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 91,
+      "jornada_teorica": 1491,
+      "jornada_realizar": 1488
+    },
+    {
+      "numero_noches": 42,
+      "libre_salida_noches": 42,
+      "mananas_tardes": 153,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 90,
+      "jornada_teorica": 1491,
+      "jornada_realizar": 1491
+    },
+    {
+      "numero_noches": 43,
+      "libre_salida_noches": 43,
+      "mananas_tardes": 151,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 90,
+      "jornada_teorica": 1490,
+      "jornada_realizar": 1487
+    },
+    {
+      "numero_noches": 44,
+      "libre_salida_noches": 44,
+      "mananas_tardes": 150,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 89,
+      "jornada_teorica": 1490,
+      "jornada_realizar": 1490
+    },
+    {
+      "numero_noches": 45,
+      "libre_salida_noches": 45,
+      "mananas_tardes": 148,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 89,
+      "jornada_teorica": 1489,
+      "jornada_realizar": 1486
+    },
+    {
+      "numero_noches": 46,
+      "libre_salida_noches": 46,
+      "mananas_tardes": 147,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 88,
+      "jornada_teorica": 1489,
+      "jornada_realizar": 1489
+    },
+    {
+      "numero_noches": 47,
+      "libre_salida_noches": 47,
+      "mananas_tardes": 146,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 87,
+      "jornada_teorica": 1489,
+      "jornada_realizar": 1492
+    },
+    {
+      "numero_noches": 48,
+      "libre_salida_noches": 48,
+      "mananas_tardes": 144,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 87,
+      "jornada_teorica": 1488,
+      "jornada_realizar": 1488
+    },
+    {
+      "numero_noches": 49,
+      "libre_salida_noches": 49,
+      "mananas_tardes": 143,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 86,
+      "jornada_teorica": 1488,
+      "jornada_realizar": 1491
+    },
+    {
+      "numero_noches": 50,
+      "libre_salida_noches": 50,
+      "mananas_tardes": 141,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 86,
+      "jornada_teorica": 1487,
+      "jornada_realizar": 1487
+    },
+    {
+      "numero_noches": 51,
+      "libre_salida_noches": 51,
+      "mananas_tardes": 140,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 85,
+      "jornada_teorica": 1487,
+      "jornada_realizar": 1490
+    },
+    {
+      "numero_noches": 52,
+      "libre_salida_noches": 52,
+      "mananas_tardes": 138,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 85,
+      "jornada_teorica": 1487,
+      "jornada_realizar": 1486
+    },
+    {
+      "numero_noches": 53,
+      "libre_salida_noches": 53,
+      "mananas_tardes": 137,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 84,
+      "jornada_teorica": 1486,
+      "jornada_realizar": 1489
+    },
+    {
+      "numero_noches": 54,
+      "libre_salida_noches": 54,
+      "mananas_tardes": 135,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 84,
+      "jornada_teorica": 1486,
+      "jornada_realizar": 1485
+    },
+    {
+      "numero_noches": 55,
+      "libre_salida_noches": 55,
+      "mananas_tardes": 134,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 83,
+      "jornada_teorica": 1485,
+      "jornada_realizar": 1488
+    },
+    {
+      "numero_noches": 56,
+      "libre_salida_noches": 56,
+      "mananas_tardes": 132,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 83,
+      "jornada_teorica": 1485,
+      "jornada_realizar": 1484
+    },
+    {
+      "numero_noches": 57,
+      "libre_salida_noches": 57,
+      "mananas_tardes": 131,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 82,
+      "jornada_teorica": 1485,
+      "jornada_realizar": 1487
+    },
+    {
+      "numero_noches": 58,
+      "libre_salida_noches": 58,
+      "mananas_tardes": 129,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 82,
+      "jornada_teorica": 1484,
+      "jornada_realizar": 1483
+    },
+    {
+      "numero_noches": 59,
+      "libre_salida_noches": 59,
+      "mananas_tardes": 128,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 81,
+      "jornada_teorica": 1484,
+      "jornada_realizar": 1486
+    },
+    {
+      "numero_noches": 60,
+      "libre_salida_noches": 60,
+      "mananas_tardes": 126,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 81,
+      "jornada_teorica": 1483,
+      "jornada_realizar": 1482
+    },
+    {
+      "numero_noches": 61,
+      "libre_salida_noches": 61,
+      "mananas_tardes": 125,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 80,
+      "jornada_teorica": 1483,
+      "jornada_realizar": 1485
+    },
+    {
+      "numero_noches": 62,
+      "libre_salida_noches": 62,
+      "mananas_tardes": 123,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 80,
+      "jornada_teorica": 1483,
+      "jornada_realizar": 1481
+    },
+    {
+      "numero_noches": 63,
+      "libre_salida_noches": 63,
+      "mananas_tardes": 122,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 79,
+      "jornada_teorica": 1482,
+      "jornada_realizar": 1484
+    },
+    {
+      "numero_noches": 64,
+      "libre_salida_noches": 64,
+      "mananas_tardes": 120,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 79,
+      "jornada_teorica": 1482,
+      "jornada_realizar": 1480
+    },
+    {
+      "numero_noches": 65,
+      "libre_salida_noches": 65,
+      "mananas_tardes": 119,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 78,
+      "jornada_teorica": 1481,
+      "jornada_realizar": 1483
+    },
+    {
+      "numero_noches": 66,
+      "libre_salida_noches": 66,
+      "mananas_tardes": 117,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 78,
+      "jornada_teorica": 1481,
+      "jornada_realizar": 1479
+    },
+    {
+      "numero_noches": 67,
+      "libre_salida_noches": 67,
+      "mananas_tardes": 116,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 77,
+      "jornada_teorica": 1481,
+      "jornada_realizar": 1482
+    },
+    {
+      "numero_noches": 68,
+      "libre_salida_noches": 68,
+      "mananas_tardes": 114,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 77,
+      "jornada_teorica": 1480,
+      "jornada_realizar": 1478
+    },
+    {
+      "numero_noches": 69,
+      "libre_salida_noches": 69,
+      "mananas_tardes": 113,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 76,
+      "jornada_teorica": 1480,
+      "jornada_realizar": 1481
+    },
+    {
+      "numero_noches": 70,
+      "libre_salida_noches": 70,
+      "mananas_tardes": 111,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 76,
+      "jornada_teorica": 1479,
+      "jornada_realizar": 1477
+    },
+    {
+      "numero_noches": 71,
+      "libre_salida_noches": 71,
+      "mananas_tardes": 110,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 75,
+      "jornada_teorica": 1479,
+      "jornada_realizar": 1480
+    },
+    {
+      "numero_noches": 72,
+      "libre_salida_noches": 72,
+      "mananas_tardes": 108,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 75,
+      "jornada_teorica": 1478,
+      "jornada_realizar": 1476
+    },
+    {
+      "numero_noches": 73,
+      "libre_salida_noches": 73,
+      "mananas_tardes": 107,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 74,
+      "jornada_teorica": 1478,
+      "jornada_realizar": 1479
+    },
+    {
+      "numero_noches": 74,
+      "libre_salida_noches": 74,
+      "mananas_tardes": 105,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 74,
+      "jornada_teorica": 1478,
+      "jornada_realizar": 1475
+    },
+    {
+      "numero_noches": 75,
+      "libre_salida_noches": 75,
+      "mananas_tardes": 104,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 73,
+      "jornada_teorica": 1477,
+      "jornada_realizar": 1478
+    },
+    {
+      "numero_noches": 76,
+      "libre_salida_noches": 76,
+      "mananas_tardes": 102,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 73,
+      "jornada_teorica": 1477,
+      "jornada_realizar": 1474
+    },
+    {
+      "numero_noches": 77,
+      "libre_salida_noches": 77,
+      "mananas_tardes": 101,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 72,
+      "jornada_teorica": 1476,
+      "jornada_realizar": 1477
+    },
+    {
+      "numero_noches": 78,
+      "libre_salida_noches": 78,
+      "mananas_tardes": 99,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 72,
+      "jornada_teorica": 1476,
+      "jornada_realizar": 1473
+    },
+    {
+      "numero_noches": 79,
+      "libre_salida_noches": 79,
+      "mananas_tardes": 98,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 71,
+      "jornada_teorica": 1476,
+      "jornada_realizar": 1476
+    },
+    {
+      "numero_noches": 80,
+      "libre_salida_noches": 80,
+      "mananas_tardes": 96,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 71,
+      "jornada_teorica": 1475,
+      "jornada_realizar": 1472
+    },
+    {
+      "numero_noches": 81,
+      "libre_salida_noches": 81,
+      "mananas_tardes": 95,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 70,
+      "jornada_teorica": 1475,
+      "jornada_realizar": 1475
+    },
+    {
+      "numero_noches": 82,
+      "libre_salida_noches": 82,
+      "mananas_tardes": 93,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 70,
+      "jornada_teorica": 1474,
+      "jornada_realizar": 1471
+    },
+    {
+      "numero_noches": 83,
+      "libre_salida_noches": 83,
+      "mananas_tardes": 92,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 69,
+      "jornada_teorica": 1474,
+      "jornada_realizar": 1474
+    },
+    {
+      "numero_noches": 84,
+      "libre_salida_noches": 84,
+      "mananas_tardes": 91,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 68,
+      "jornada_teorica": 1474,
+      "jornada_realizar": 1477
+    },
+    {
+      "numero_noches": 85,
+      "libre_salida_noches": 85,
+      "mananas_tardes": 89,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 68,
+      "jornada_teorica": 1473,
+      "jornada_realizar": 1473
+    },
+    {
+      "numero_noches": 86,
+      "libre_salida_noches": 86,
+      "mananas_tardes": 88,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 67,
+      "jornada_teorica": 1473,
+      "jornada_realizar": 1476
+    },
+    {
+      "numero_noches": 87,
+      "libre_salida_noches": 87,
+      "mananas_tardes": 86,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 67,
+      "jornada_teorica": 1472,
+      "jornada_realizar": 1472
+    },
+    {
+      "numero_noches": 88,
+      "libre_salida_noches": 88,
+      "mananas_tardes": 85,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 66,
+      "jornada_teorica": 1472,
+      "jornada_realizar": 1475
+    },
+    {
+      "numero_noches": 89,
+      "libre_salida_noches": 89,
+      "mananas_tardes": 83,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 66,
+      "jornada_teorica": 1472,
+      "jornada_realizar": 1471
+    },
+    {
+      "numero_noches": 90,
+      "libre_salida_noches": 90,
+      "mananas_tardes": 82,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 65,
+      "jornada_teorica": 1471,
+      "jornada_realizar": 1474
+    },
+    {
+      "numero_noches": 91,
+      "libre_salida_noches": 91,
+      "mananas_tardes": 80,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 65,
+      "jornada_teorica": 1471,
+      "jornada_realizar": 1470
+    },
+    {
+      "numero_noches": 92,
+      "libre_salida_noches": 92,
+      "mananas_tardes": 79,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 64,
+      "jornada_teorica": 1470,
+      "jornada_realizar": 1473
+    },
+    {
+      "numero_noches": 93,
+      "libre_salida_noches": 93,
+      "mananas_tardes": 77,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 64,
+      "jornada_teorica": 1470,
+      "jornada_realizar": 1469
+    },
+    {
+      "numero_noches": 94,
+      "libre_salida_noches": 94,
+      "mananas_tardes": 76,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 63,
+      "jornada_teorica": 1470,
+      "jornada_realizar": 1472
+    },
+    {
+      "numero_noches": 95,
+      "libre_salida_noches": 95,
+      "mananas_tardes": 74,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 63,
+      "jornada_teorica": 1469,
+      "jornada_realizar": 1468
+    },
+    {
+      "numero_noches": 96,
+      "libre_salida_noches": 96,
+      "mananas_tardes": 73,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 62,
+      "jornada_teorica": 1469,
+      "jornada_realizar": 1471
+    },
+    {
+      "numero_noches": 97,
+      "libre_salida_noches": 97,
+      "mananas_tardes": 71,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 62,
+      "jornada_teorica": 1468,
+      "jornada_realizar": 1467
+    },
+    {
+      "numero_noches": 98,
+      "libre_salida_noches": 98,
+      "mananas_tardes": 70,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 61,
+      "jornada_teorica": 1468,
+      "jornada_realizar": 1470
+    },
+    {
+      "numero_noches": 99,
+      "libre_salida_noches": 99,
+      "mananas_tardes": 68,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 61,
+      "jornada_teorica": 1468,
+      "jornada_realizar": 1466
+    },
+    {
+      "numero_noches": 100,
+      "libre_salida_noches": 100,
+      "mananas_tardes": 67,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 60,
+      "jornada_teorica": 1467,
+      "jornada_realizar": 1469
+    },
+    {
+      "numero_noches": 101,
+      "libre_salida_noches": 101,
+      "mananas_tardes": 65,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 60,
+      "jornada_teorica": 1467,
+      "jornada_realizar": 1465
+    },
+    {
+      "numero_noches": 102,
+      "libre_salida_noches": 102,
+      "mananas_tardes": 64,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 59,
+      "jornada_teorica": 1466,
+      "jornada_realizar": 1468
+    },
+    {
+      "numero_noches": 103,
+      "libre_salida_noches": 103,
+      "mananas_tardes": 62,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 59,
+      "jornada_teorica": 1466,
+      "jornada_realizar": 1464
+    },
+    {
+      "numero_noches": 104,
+      "libre_salida_noches": 104,
+      "mananas_tardes": 61,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 58,
+      "jornada_teorica": 1465,
+      "jornada_realizar": 1467
+    },
+    {
+      "numero_noches": 105,
+      "libre_salida_noches": 105,
+      "mananas_tardes": 59,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 58,
+      "jornada_teorica": 1465,
+      "jornada_realizar": 1463
+    },
+    {
+      "numero_noches": 106,
+      "libre_salida_noches": 106,
+      "mananas_tardes": 58,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 57,
+      "jornada_teorica": 1465,
+      "jornada_realizar": 1466
+    },
+    {
+      "numero_noches": 107,
+      "libre_salida_noches": 107,
+      "mananas_tardes": 56,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 57,
+      "jornada_teorica": 1464,
+      "jornada_realizar": 1462
+    },
+    {
+      "numero_noches": 108,
+      "libre_salida_noches": 108,
+      "mananas_tardes": 55,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 56,
+      "jornada_teorica": 1464,
+      "jornada_realizar": 1465
+    },
+    {
+      "numero_noches": 109,
+      "libre_salida_noches": 109,
+      "mananas_tardes": 53,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 56,
+      "jornada_teorica": 1463,
+      "jornada_realizar": 1461
+    },
+    {
+      "numero_noches": 110,
+      "libre_salida_noches": 110,
+      "mananas_tardes": 52,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 55,
+      "jornada_teorica": 1463,
+      "jornada_realizar": 1464
+    },
+    {
+      "numero_noches": 111,
+      "libre_salida_noches": 111,
+      "mananas_tardes": 50,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 55,
+      "jornada_teorica": 1463,
+      "jornada_realizar": 1460
+    },
+    {
+      "numero_noches": 112,
+      "libre_salida_noches": 112,
+      "mananas_tardes": 49,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 54,
+      "jornada_teorica": 1462,
+      "jornada_realizar": 1463
+    },
+    {
+      "numero_noches": 113,
+      "libre_salida_noches": 113,
+      "mananas_tardes": 47,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 54,
+      "jornada_teorica": 1462,
+      "jornada_realizar": 1459
+    },
+    {
+      "numero_noches": 114,
+      "libre_salida_noches": 114,
+      "mananas_tardes": 46,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 53,
+      "jornada_teorica": 1461,
+      "jornada_realizar": 1462
+    },
+    {
+      "numero_noches": 115,
+      "libre_salida_noches": 115,
+      "mananas_tardes": 44,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 53,
+      "jornada_teorica": 1461,
+      "jornada_realizar": 1458
+    },
+    {
+      "numero_noches": 116,
+      "libre_salida_noches": 116,
+      "mananas_tardes": 43,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 52,
+      "jornada_teorica": 1461,
+      "jornada_realizar": 1461
+    },
+    {
+      "numero_noches": 117,
+      "libre_salida_noches": 117,
+      "mananas_tardes": 41,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 52,
+      "jornada_teorica": 1460,
+      "jornada_realizar": 1457
+    },
+    {
+      "numero_noches": 118,
+      "libre_salida_noches": 118,
+      "mananas_tardes": 40,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 51,
+      "jornada_teorica": 1460,
+      "jornada_realizar": 1460
+    },
+    {
+      "numero_noches": 119,
+      "libre_salida_noches": 119,
+      "mananas_tardes": 38,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 51,
+      "jornada_teorica": 1459,
+      "jornada_realizar": 1456
+    },
+    {
+      "numero_noches": 120,
+      "libre_salida_noches": 120,
+      "mananas_tardes": 37,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 50,
+      "jornada_teorica": 1459,
+      "jornada_realizar": 1459
+    },
+    {
+      "numero_noches": 121,
+      "libre_salida_noches": 121,
+      "mananas_tardes": 36,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 49,
+      "jornada_teorica": 1459,
+      "jornada_realizar": 1462
+    },
+    {
+      "numero_noches": 122,
+      "libre_salida_noches": 122,
+      "mananas_tardes": 34,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 49,
+      "jornada_teorica": 1458,
+      "jornada_realizar": 1458
+    },
+    {
+      "numero_noches": 123,
+      "libre_salida_noches": 123,
+      "mananas_tardes": 33,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 48,
+      "jornada_teorica": 1458,
+      "jornada_realizar": 1461
+    },
+    {
+      "numero_noches": 124,
+      "libre_salida_noches": 124,
+      "mananas_tardes": 31,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 48,
+      "jornada_teorica": 1457,
+      "jornada_realizar": 1457
+    },
+    {
+      "numero_noches": 125,
+      "libre_salida_noches": 125,
+      "mananas_tardes": 30,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 47,
+      "jornada_teorica": 1457,
+      "jornada_realizar": 1460
+    },
+    {
+      "numero_noches": 126,
+      "libre_salida_noches": 126,
+      "mananas_tardes": 28,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 47,
+      "jornada_teorica": 1457,
+      "jornada_realizar": 1456
+    },
+    {
+      "numero_noches": 127,
+      "libre_salida_noches": 127,
+      "mananas_tardes": 27,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 46,
+      "jornada_teorica": 1456,
+      "jornada_realizar": 1459
+    },
+    {
+      "numero_noches": 128,
+      "libre_salida_noches": 128,
+      "mananas_tardes": 25,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 46,
+      "jornada_teorica": 1456,
+      "jornada_realizar": 1455
+    },
+    {
+      "numero_noches": 129,
+      "libre_salida_noches": 129,
+      "mananas_tardes": 24,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 45,
+      "jornada_teorica": 1455,
+      "jornada_realizar": 1458
+    },
+    {
+      "numero_noches": 130,
+      "libre_salida_noches": 130,
+      "mananas_tardes": 22,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 45,
+      "jornada_teorica": 1455,
+      "jornada_realizar": 1454
+    },
+    {
+      "numero_noches": 131,
+      "libre_salida_noches": 131,
+      "mananas_tardes": 21,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 44,
+      "jornada_teorica": 1454,
+      "jornada_realizar": 1457
+    },
+    {
+      "numero_noches": 132,
+      "libre_salida_noches": 132,
+      "mananas_tardes": 19,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 44,
+      "jornada_teorica": 1454,
+      "jornada_realizar": 1453
+    },
+    {
+      "numero_noches": 133,
+      "libre_salida_noches": 133,
+      "mananas_tardes": 18,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 43,
+      "jornada_teorica": 1454,
+      "jornada_realizar": 1456
+    },
+    {
+      "numero_noches": 134,
+      "libre_salida_noches": 134,
+      "mananas_tardes": 16,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 43,
+      "jornada_teorica": 1453,
+      "jornada_realizar": 1452
+    },
+    {
+      "numero_noches": 135,
+      "libre_salida_noches": 135,
+      "mananas_tardes": 15,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 42,
+      "jornada_teorica": 1452,
+      "jornada_realizar": 1455
+    },
+    {
+      "numero_noches": 136,
+      "libre_salida_noches": 136,
+      "mananas_tardes": 13,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 42,
+      "jornada_teorica": 1452,
+      "jornada_realizar": 1451
+    },
+    {
+      "numero_noches": 137,
+      "libre_salida_noches": 137,
+      "mananas_tardes": 12,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 41,
+      "jornada_teorica": 1452,
+      "jornada_realizar": 1454
+    },
+    {
+      "numero_noches": 138,
+      "libre_salida_noches": 138,
+      "mananas_tardes": 10,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 41,
+      "jornada_teorica": 1452,
+      "jornada_realizar": 1450
+    },
+    {
+      "numero_noches": 139,
+      "libre_salida_noches": 139,
+      "mananas_tardes": 9,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 40,
+      "jornada_teorica": 1451,
+      "jornada_realizar": 1453
+    },
+    {
+      "numero_noches": 140,
+      "libre_salida_noches": 140,
+      "mananas_tardes": 7,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 40,
+      "jornada_teorica": 1451,
+      "jornada_realizar": 1449
+    },
+    {
+      "numero_noches": 141,
+      "libre_salida_noches": 141,
+      "mananas_tardes": 6,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 39,
+      "jornada_teorica": 1450,
+      "jornada_realizar": 1452
+    },
+    {
+      "numero_noches": 142,
+      "libre_salida_noches": 142,
+      "mananas_tardes": 4,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 39,
+      "jornada_teorica": 1450,
+      "jornada_realizar": 1448
+    },
+    {
+      "numero_noches": 143,
+      "libre_salida_noches": 143,
+      "mananas_tardes": 3,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 38,
+      "jornada_teorica": 1450,
+      "jornada_realizar": 1451
+    },
+    {
+      "numero_noches": 144,
+      "libre_salida_noches": 144,
+      "mananas_tardes": 1,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 38,
+      "jornada_teorica": 1449,
+      "jornada_realizar": 1447
+    },
+    {
+      "numero_noches": 145,
+      "libre_salida_noches": 145,
+      "mananas_tardes": 0,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 37,
+      "jornada_teorica": 1449,
+      "jornada_realizar": 1450
+    }
+  ]
+};
