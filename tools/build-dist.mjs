@@ -14,7 +14,7 @@ const html = `<!doctype html>
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Gestor local de turnos de enfermeria</title>
+    <title>Gestor Local de Turnos de Enfermería</title>
     <style>
 ${css}
     </style>
@@ -52,12 +52,23 @@ async function buildScript() {
     "src/js/ui/render.js",
     "src/js/app.js",
   ];
-  const chunks = [];
+  const chunks = [await buildBrandAssetsChunk()];
   for (const file of files) {
     const source = await fs.readFile(path.join(root, file), "utf8");
     chunks.push(`\n// ---- ${file} ----\n${toClassicScript(source)}`);
   }
   return `"use strict";\n${chunks.join("\n")}`;
+}
+
+async function buildBrandAssetsChunk() {
+  const gaicrLogo = await dataUri("src/assets/logos/gaicr.jpg", "image/jpeg");
+  const sescamLogo = await dataUri("src/assets/logos/sescam.jpg", "image/jpeg");
+  return `\n// ---- generated brand assets ----\nconst BRAND_ASSETS = ${JSON.stringify({ gaicrLogo, sescamLogo }, null, 2)};\n`;
+}
+
+async function dataUri(relativePath, mimeType) {
+  const buffer = await fs.readFile(path.join(root, relativePath));
+  return `data:${mimeType};base64,${buffer.toString("base64")}`;
 }
 
 function toClassicScript(source) {

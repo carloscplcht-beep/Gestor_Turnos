@@ -1,0 +1,5 @@
+chrome-*/
+qa-*.png
+qa-*.log
+qa-*.out
+qa-*.err
