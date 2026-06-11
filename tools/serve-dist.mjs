@@ -2,8 +2,9 @@ import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const root = path.join(process.cwd(), "dist");
+const root = process.cwd();
 const port = Number(process.env.PORT || 5179);
+const basePath = normalizeBasePath(process.env.BASE_PATH || "");
 const types = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -14,7 +15,13 @@ const types = {
 http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://127.0.0.1:${port}`);
-    const requested = url.pathname === "/" ? "/gestor-turnos-enfermeria.html" : url.pathname;
+    const pathFromBase = stripBasePath(url.pathname);
+    if (pathFromBase === null) {
+      res.writeHead(404);
+      res.end("Not found");
+      return;
+    }
+    const requested = pathFromBase === "/" ? "/index.html" : pathFromBase;
     const filePath = path.normalize(path.join(root, requested));
     if (!filePath.startsWith(root)) {
       res.writeHead(403);
@@ -29,5 +36,18 @@ http.createServer(async (req, res) => {
     res.end("Not found");
   }
 }).listen(port, "127.0.0.1", () => {
-  console.log(`Serving dist at http://127.0.0.1:${port}/`);
+  console.log(`Serving repository at http://127.0.0.1:${port}${basePath || ""}/`);
 });
+
+function normalizeBasePath(value) {
+  const trimmed = value.trim().replace(/\/+$/g, "");
+  if (!trimmed) return "";
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+
+function stripBasePath(urlPathname) {
+  if (!basePath) return urlPathname;
+  if (urlPathname === basePath) return "/";
+  if (urlPathname.startsWith(`${basePath}/`)) return urlPathname.slice(basePath.length) || "/";
+  return null;
+}

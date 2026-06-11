@@ -28,9 +28,14 @@ ${script}
 </html>
 `;
 
-await fs.writeFile(path.join(dist, "gestor-turnos-enfermeria.html"), html, "utf8");
+const outputs = [
+  path.join(dist, "gestor-turnos-enfermeria.html"),
+  path.join(root, "index.html"),
+];
 
-console.log("Built dist/gestor-turnos-enfermeria.html");
+await Promise.all(outputs.map((output) => fs.writeFile(output, html, "utf8")));
+
+console.log("Built dist/gestor-turnos-enfermeria.html and index.html");
 
 async function buildScript() {
   const files = [

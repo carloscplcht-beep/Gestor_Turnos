@@ -1,0 +1,2640 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gestor local de turnos de enfermeria</title>
+    <style>
+:root {
+  --bg: #f4f8fb;
+  --surface: #ffffff;
+  --surface-2: #eef6fb;
+  --text: #17324d;
+  --muted: #64748b;
+  --line: #d8e4ec;
+  --primary: #0b6f9c;
+  --primary-dark: #07587d;
+  --teal: #0f9f8f;
+  --danger: #b42318;
+  --warn: #b4690e;
+  --ok: #13795b;
+  --radius: 8px;
+  --shadow: 0 10px 28px rgba(15, 76, 117, 0.09);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  overflow-x: hidden;
+}
+
+button, input, select, textarea { font: inherit; }
+button {
+  border: 0;
+  border-radius: 7px;
+  padding: 9px 12px;
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 650;
+}
+button.secondary { background: #e5eef5; color: var(--text); }
+button.danger { background: var(--danger); }
+button.ghost { background: transparent; color: var(--primary); padding: 6px 8px; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 248px 1fr;
+}
+.sidebar {
+  background: #0b4263;
+  color: #e9f7ff;
+  padding: 20px 16px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  min-width: 0;
+}
+.brand { font-size: 19px; line-height: 1.15; font-weight: 750; margin-bottom: 24px; overflow-wrap: anywhere; }
+.nav-button {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: #e9f7ff;
+  margin: 2px 0;
+  border-radius: 7px;
+}
+.nav-button.active { background: rgba(255,255,255,.14); }
+.status-pill {
+  margin-top: 26px;
+  padding: 10px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 8px;
+  color: #cdeefa;
+  font-size: 12px;
+}
+.main { min-width: 0; }
+.topbar {
+  background: rgba(255,255,255,.88);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+  padding: 16px 22px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.topbar h1 { margin: 0; font-size: 22px; letter-spacing: 0; overflow-wrap: anywhere; }
+.topbar-meta { color: var(--muted); margin-top: 4px; display: flex; gap: 14px; flex-wrap: wrap; }
+.content { padding: 20px 22px 34px; }
+.section { display: none; }
+.section.active { display: block; }
+.grid { display: grid; gap: 14px; }
+.grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+.card h2, .card h3 { margin: 0 0 12px; }
+.metric { min-height: 102px; }
+.metric .value { font-size: 30px; font-weight: 760; margin-top: 8px; }
+.metric .label { color: var(--muted); }
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 12px;
+}
+label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; font-weight: 650; }
+input, select, textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--text);
+  padding: 9px 10px;
+}
+.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+.table-wrap {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+table { border-collapse: separate; border-spacing: 0; width: 100%; }
+th, td { padding: 8px 9px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); text-align: left; white-space: nowrap; }
+th { background: var(--surface-2); font-size: 12px; color: #36566f; position: sticky; top: 0; z-index: 2; }
+td:last-child, th:last-child { border-right: 0; }
+tr:last-child td { border-bottom: 0; }
+.calendar th:first-child, .calendar td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: #fff;
+  min-width: 210px;
+}
+.calendar th:first-child { background: var(--surface-2); z-index: 4; }
+.day-head { text-align: center; min-width: 42px; }
+.weekend { background: #f3f6f8; }
+.today { outline: 2px solid var(--teal); outline-offset: -2px; }
+.shift-cell { text-align: center; font-weight: 750; color: #143047; }
+.muted { color: var(--muted); }
+.badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 8px; font-size: 12px; font-weight: 700; }
+.badge.ok { background: #e7f6ef; color: var(--ok); }
+.badge.warn { background: #fff4df; color: var(--warn); }
+.badge.danger { background: #ffe8e5; color: var(--danger); }
+.sequence { display: flex; gap: 6px; flex-wrap: wrap; }
+.sequence span { padding: 5px 9px; border-radius: 6px; background: #eaf4fa; font-weight: 750; }
+.notice { border-left: 4px solid var(--teal); background: #edfafa; padding: 11px 12px; border-radius: 6px; color: #165d57; }
+.notice-warn { border-left-color: var(--warn); background: #fff4df; color: #74420a; margin-bottom: 14px; }
+.file-input { padding: 7px; background: #fff; }
+
+@media (max-width: 980px) {
+  .app-shell { grid-template-columns: 1fr; }
+  .sidebar { position: static; height: auto; }
+  .grid.cols-3, .grid.cols-4, .grid.cols-2 { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 620px) {
+  .form-grid { grid-template-columns: 1fr; }
+  .content { padding: 14px; }
+  .topbar h1, .topbar-meta { max-width: calc(100vw - 44px); }
+  .topbar h1 { font-size: 20px; line-height: 1.2; }
+}
+
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script>
+"use strict";
+
+// ---- src/js/data/normativaSescam2019.generated.js ----
+// Generated from normativa_tmp/ponderacion_jornada_sescam_2019.json.
+// Do not edit manually; regenerate from the verified normative JSON source.
+const PERFIL_NORMATIVO_SESCAM_2019 = {
+  "schemaVersion": "1.0",
+  "id": "sescam-jornada-2019",
+  "nombre": "SESCAM - Jornada vigente desde 01/01/2019",
+  "fuente": {
+    "documento": "Resolución de 28 de diciembre de 2018",
+    "archivo": "jornada-2020.pdf",
+    "efectosDesde": "2019-01-01",
+    "anexo": "Anexo I - Ponderación jornada",
+    "paginasTabla": [
+      11,
+      12,
+      13,
+      14
+    ],
+    "nota": "Transcripción manual verificada visualmente. La tabla contiene 146 filas, de 0 a 145 noches."
+  },
+  "jornadasFijas": {
+    "turnoDiurno": 1519,
+    "turnoNocturno": 1450,
+    "turnoRotatorioReferencia": 1491,
+    "nochesReferenciaRotatorio": 42,
+    "atencionContinuadaAtencionPrimaria": 1500,
+    "unidadMovilEmergenciasCentroCoordinador": 1488,
+    "suap": 1488
+  },
+  "tablaPonderacion": [
+    {
+      "numero_noches": 0,
+      "libre_salida_noches": 0,
+      "mananas_tardes": 217,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 110,
+      "jornada_teorica": 1519,
+      "jornada_realizar": 1519
+    },
+    {
+      "numero_noches": 1,
+      "libre_salida_noches": 1,
+      "mananas_tardes": 215,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 110,
+      "jornada_teorica": 1518,
+      "jornada_realizar": 1515
+    },
+    {
+      "numero_noches": 2,
+      "libre_salida_noches": 2,
+      "mananas_tardes": 214,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 109,
+      "jornada_teorica": 1518,
+      "jornada_realizar": 1518
+    },
+    {
+      "numero_noches": 3,
+      "libre_salida_noches": 3,
+      "mananas_tardes": 212,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 109,
+      "jornada_teorica": 1517,
+      "jornada_realizar": 1514
+    },
+    {
+      "numero_noches": 4,
+      "libre_salida_noches": 4,
+      "mananas_tardes": 211,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 108,
+      "jornada_teorica": 1516,
+      "jornada_realizar": 1517
+    },
+    {
+      "numero_noches": 5,
+      "libre_salida_noches": 5,
+      "mananas_tardes": 209,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 108,
+      "jornada_teorica": 1516,
+      "jornada_realizar": 1513
+    },
+    {
+      "numero_noches": 6,
+      "libre_salida_noches": 6,
+      "mananas_tardes": 208,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 107,
+      "jornada_teorica": 1515,
+      "jornada_realizar": 1516
+    },
+    {
+      "numero_noches": 7,
+      "libre_salida_noches": 7,
+      "mananas_tardes": 206,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 107,
+      "jornada_teorica": 1514,
+      "jornada_realizar": 1512
+    },
+    {
+      "numero_noches": 8,
+      "libre_salida_noches": 8,
+      "mananas_tardes": 205,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 106,
+      "jornada_teorica": 1514,
+      "jornada_realizar": 1515
+    },
+    {
+      "numero_noches": 9,
+      "libre_salida_noches": 9,
+      "mananas_tardes": 203,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 106,
+      "jornada_teorica": 1513,
+      "jornada_realizar": 1511
+    },
+    {
+      "numero_noches": 10,
+      "libre_salida_noches": 10,
+      "mananas_tardes": 202,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 105,
+      "jornada_teorica": 1512,
+      "jornada_realizar": 1514
+    },
+    {
+      "numero_noches": 11,
+      "libre_salida_noches": 11,
+      "mananas_tardes": 200,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 105,
+      "jornada_teorica": 1512,
+      "jornada_realizar": 1510
+    },
+    {
+      "numero_noches": 12,
+      "libre_salida_noches": 12,
+      "mananas_tardes": 199,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 104,
+      "jornada_teorica": 1511,
+      "jornada_realizar": 1513
+    },
+    {
+      "numero_noches": 13,
+      "libre_salida_noches": 13,
+      "mananas_tardes": 197,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 104,
+      "jornada_teorica": 1510,
+      "jornada_realizar": 1509
+    },
+    {
+      "numero_noches": 14,
+      "libre_salida_noches": 14,
+      "mananas_tardes": 196,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 103,
+      "jornada_teorica": 1510,
+      "jornada_realizar": 1512
+    },
+    {
+      "numero_noches": 15,
+      "libre_salida_noches": 15,
+      "mananas_tardes": 194,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 103,
+      "jornada_teorica": 1509,
+      "jornada_realizar": 1508
+    },
+    {
+      "numero_noches": 16,
+      "libre_salida_noches": 16,
+      "mananas_tardes": 193,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 102,
+      "jornada_teorica": 1508,
+      "jornada_realizar": 1511
+    },
+    {
+      "numero_noches": 17,
+      "libre_salida_noches": 17,
+      "mananas_tardes": 191,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 102,
+      "jornada_teorica": 1508,
+      "jornada_realizar": 1507
+    },
+    {
+      "numero_noches": 18,
+      "libre_salida_noches": 18,
+      "mananas_tardes": 190,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 101,
+      "jornada_teorica": 1507,
+      "jornada_realizar": 1510
+    },
+    {
+      "numero_noches": 19,
+      "libre_salida_noches": 19,
+      "mananas_tardes": 188,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 101,
+      "jornada_teorica": 1506,
+      "jornada_realizar": 1506
+    },
+    {
+      "numero_noches": 20,
+      "libre_salida_noches": 20,
+      "mananas_tardes": 187,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 100,
+      "jornada_teorica": 1506,
+      "jornada_realizar": 1509
+    },
+    {
+      "numero_noches": 21,
+      "libre_salida_noches": 21,
+      "mananas_tardes": 185,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 100,
+      "jornada_teorica": 1505,
+      "jornada_realizar": 1505
+    },
+    {
+      "numero_noches": 22,
+      "libre_salida_noches": 22,
+      "mananas_tardes": 183,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 100,
+      "jornada_teorica": 1504,
+      "jornada_realizar": 1501
+    },
+    {
+      "numero_noches": 23,
+      "libre_salida_noches": 23,
+      "mananas_tardes": 182,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 99,
+      "jornada_teorica": 1504,
+      "jornada_realizar": 1504
+    },
+    {
+      "numero_noches": 24,
+      "libre_salida_noches": 24,
+      "mananas_tardes": 180,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 99,
+      "jornada_teorica": 1503,
+      "jornada_realizar": 1500
+    },
+    {
+      "numero_noches": 25,
+      "libre_salida_noches": 25,
+      "mananas_tardes": 179,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 98,
+      "jornada_teorica": 1502,
+      "jornada_realizar": 1503
+    },
+    {
+      "numero_noches": 26,
+      "libre_salida_noches": 26,
+      "mananas_tardes": 177,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 98,
+      "jornada_teorica": 1501,
+      "jornada_realizar": 1499
+    },
+    {
+      "numero_noches": 27,
+      "libre_salida_noches": 27,
+      "mananas_tardes": 176,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 97,
+      "jornada_teorica": 1501,
+      "jornada_realizar": 1502
+    },
+    {
+      "numero_noches": 28,
+      "libre_salida_noches": 28,
+      "mananas_tardes": 174,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 97,
+      "jornada_teorica": 1500,
+      "jornada_realizar": 1498
+    },
+    {
+      "numero_noches": 29,
+      "libre_salida_noches": 29,
+      "mananas_tardes": 173,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 96,
+      "jornada_teorica": 1499,
+      "jornada_realizar": 1501
+    },
+    {
+      "numero_noches": 30,
+      "libre_salida_noches": 30,
+      "mananas_tardes": 171,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 96,
+      "jornada_teorica": 1498,
+      "jornada_realizar": 1497
+    },
+    {
+      "numero_noches": 31,
+      "libre_salida_noches": 31,
+      "mananas_tardes": 170,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 95,
+      "jornada_teorica": 1498,
+      "jornada_realizar": 1500
+    },
+    {
+      "numero_noches": 32,
+      "libre_salida_noches": 32,
+      "mananas_tardes": 168,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 95,
+      "jornada_teorica": 1497,
+      "jornada_realizar": 1496
+    },
+    {
+      "numero_noches": 33,
+      "libre_salida_noches": 33,
+      "mananas_tardes": 167,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 94,
+      "jornada_teorica": 1497,
+      "jornada_realizar": 1499
+    },
+    {
+      "numero_noches": 34,
+      "libre_salida_noches": 34,
+      "mananas_tardes": 165,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 94,
+      "jornada_teorica": 1496,
+      "jornada_realizar": 1495
+    },
+    {
+      "numero_noches": 35,
+      "libre_salida_noches": 35,
+      "mananas_tardes": 164,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 93,
+      "jornada_teorica": 1495,
+      "jornada_realizar": 1498
+    },
+    {
+      "numero_noches": 36,
+      "libre_salida_noches": 36,
+      "mananas_tardes": 162,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 93,
+      "jornada_teorica": 1495,
+      "jornada_realizar": 1494
+    },
+    {
+      "numero_noches": 37,
+      "libre_salida_noches": 37,
+      "mananas_tardes": 161,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 92,
+      "jornada_teorica": 1494,
+      "jornada_realizar": 1497
+    },
+    {
+      "numero_noches": 38,
+      "libre_salida_noches": 38,
+      "mananas_tardes": 159,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 92,
+      "jornada_teorica": 1493,
+      "jornada_realizar": 1493
+    },
+    {
+      "numero_noches": 39,
+      "libre_salida_noches": 39,
+      "mananas_tardes": 158,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 91,
+      "jornada_teorica": 1493,
+      "jornada_realizar": 1496
+    },
+    {
+      "numero_noches": 40,
+      "libre_salida_noches": 40,
+      "mananas_tardes": 156,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 91,
+      "jornada_teorica": 1492,
+      "jornada_realizar": 1492
+    },
+    {
+      "numero_noches": 41,
+      "libre_salida_noches": 41,
+      "mananas_tardes": 154,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 91,
+      "jornada_teorica": 1491,
+      "jornada_realizar": 1488
+    },
+    {
+      "numero_noches": 42,
+      "libre_salida_noches": 42,
+      "mananas_tardes": 153,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 90,
+      "jornada_teorica": 1491,
+      "jornada_realizar": 1491
+    },
+    {
+      "numero_noches": 43,
+      "libre_salida_noches": 43,
+      "mananas_tardes": 151,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 90,
+      "jornada_teorica": 1490,
+      "jornada_realizar": 1487
+    },
+    {
+      "numero_noches": 44,
+      "libre_salida_noches": 44,
+      "mananas_tardes": 150,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 89,
+      "jornada_teorica": 1490,
+      "jornada_realizar": 1490
+    },
+    {
+      "numero_noches": 45,
+      "libre_salida_noches": 45,
+      "mananas_tardes": 148,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 89,
+      "jornada_teorica": 1489,
+      "jornada_realizar": 1486
+    },
+    {
+      "numero_noches": 46,
+      "libre_salida_noches": 46,
+      "mananas_tardes": 147,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 88,
+      "jornada_teorica": 1489,
+      "jornada_realizar": 1489
+    },
+    {
+      "numero_noches": 47,
+      "libre_salida_noches": 47,
+      "mananas_tardes": 146,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 87,
+      "jornada_teorica": 1489,
+      "jornada_realizar": 1492
+    },
+    {
+      "numero_noches": 48,
+      "libre_salida_noches": 48,
+      "mananas_tardes": 144,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 87,
+      "jornada_teorica": 1488,
+      "jornada_realizar": 1488
+    },
+    {
+      "numero_noches": 49,
+      "libre_salida_noches": 49,
+      "mananas_tardes": 143,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 86,
+      "jornada_teorica": 1488,
+      "jornada_realizar": 1491
+    },
+    {
+      "numero_noches": 50,
+      "libre_salida_noches": 50,
+      "mananas_tardes": 141,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 86,
+      "jornada_teorica": 1487,
+      "jornada_realizar": 1487
+    },
+    {
+      "numero_noches": 51,
+      "libre_salida_noches": 51,
+      "mananas_tardes": 140,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 85,
+      "jornada_teorica": 1487,
+      "jornada_realizar": 1490
+    },
+    {
+      "numero_noches": 52,
+      "libre_salida_noches": 52,
+      "mananas_tardes": 138,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 85,
+      "jornada_teorica": 1487,
+      "jornada_realizar": 1486
+    },
+    {
+      "numero_noches": 53,
+      "libre_salida_noches": 53,
+      "mananas_tardes": 137,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 84,
+      "jornada_teorica": 1486,
+      "jornada_realizar": 1489
+    },
+    {
+      "numero_noches": 54,
+      "libre_salida_noches": 54,
+      "mananas_tardes": 135,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 84,
+      "jornada_teorica": 1486,
+      "jornada_realizar": 1485
+    },
+    {
+      "numero_noches": 55,
+      "libre_salida_noches": 55,
+      "mananas_tardes": 134,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 83,
+      "jornada_teorica": 1485,
+      "jornada_realizar": 1488
+    },
+    {
+      "numero_noches": 56,
+      "libre_salida_noches": 56,
+      "mananas_tardes": 132,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 83,
+      "jornada_teorica": 1485,
+      "jornada_realizar": 1484
+    },
+    {
+      "numero_noches": 57,
+      "libre_salida_noches": 57,
+      "mananas_tardes": 131,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 82,
+      "jornada_teorica": 1485,
+      "jornada_realizar": 1487
+    },
+    {
+      "numero_noches": 58,
+      "libre_salida_noches": 58,
+      "mananas_tardes": 129,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 82,
+      "jornada_teorica": 1484,
+      "jornada_realizar": 1483
+    },
+    {
+      "numero_noches": 59,
+      "libre_salida_noches": 59,
+      "mananas_tardes": 128,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 81,
+      "jornada_teorica": 1484,
+      "jornada_realizar": 1486
+    },
+    {
+      "numero_noches": 60,
+      "libre_salida_noches": 60,
+      "mananas_tardes": 126,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 81,
+      "jornada_teorica": 1483,
+      "jornada_realizar": 1482
+    },
+    {
+      "numero_noches": 61,
+      "libre_salida_noches": 61,
+      "mananas_tardes": 125,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 80,
+      "jornada_teorica": 1483,
+      "jornada_realizar": 1485
+    },
+    {
+      "numero_noches": 62,
+      "libre_salida_noches": 62,
+      "mananas_tardes": 123,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 80,
+      "jornada_teorica": 1483,
+      "jornada_realizar": 1481
+    },
+    {
+      "numero_noches": 63,
+      "libre_salida_noches": 63,
+      "mananas_tardes": 122,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 79,
+      "jornada_teorica": 1482,
+      "jornada_realizar": 1484
+    },
+    {
+      "numero_noches": 64,
+      "libre_salida_noches": 64,
+      "mananas_tardes": 120,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 79,
+      "jornada_teorica": 1482,
+      "jornada_realizar": 1480
+    },
+    {
+      "numero_noches": 65,
+      "libre_salida_noches": 65,
+      "mananas_tardes": 119,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 78,
+      "jornada_teorica": 1481,
+      "jornada_realizar": 1483
+    },
+    {
+      "numero_noches": 66,
+      "libre_salida_noches": 66,
+      "mananas_tardes": 117,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 78,
+      "jornada_teorica": 1481,
+      "jornada_realizar": 1479
+    },
+    {
+      "numero_noches": 67,
+      "libre_salida_noches": 67,
+      "mananas_tardes": 116,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 77,
+      "jornada_teorica": 1481,
+      "jornada_realizar": 1482
+    },
+    {
+      "numero_noches": 68,
+      "libre_salida_noches": 68,
+      "mananas_tardes": 114,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 77,
+      "jornada_teorica": 1480,
+      "jornada_realizar": 1478
+    },
+    {
+      "numero_noches": 69,
+      "libre_salida_noches": 69,
+      "mananas_tardes": 113,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 76,
+      "jornada_teorica": 1480,
+      "jornada_realizar": 1481
+    },
+    {
+      "numero_noches": 70,
+      "libre_salida_noches": 70,
+      "mananas_tardes": 111,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 76,
+      "jornada_teorica": 1479,
+      "jornada_realizar": 1477
+    },
+    {
+      "numero_noches": 71,
+      "libre_salida_noches": 71,
+      "mananas_tardes": 110,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 75,
+      "jornada_teorica": 1479,
+      "jornada_realizar": 1480
+    },
+    {
+      "numero_noches": 72,
+      "libre_salida_noches": 72,
+      "mananas_tardes": 108,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 75,
+      "jornada_teorica": 1478,
+      "jornada_realizar": 1476
+    },
+    {
+      "numero_noches": 73,
+      "libre_salida_noches": 73,
+      "mananas_tardes": 107,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 74,
+      "jornada_teorica": 1478,
+      "jornada_realizar": 1479
+    },
+    {
+      "numero_noches": 74,
+      "libre_salida_noches": 74,
+      "mananas_tardes": 105,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 74,
+      "jornada_teorica": 1478,
+      "jornada_realizar": 1475
+    },
+    {
+      "numero_noches": 75,
+      "libre_salida_noches": 75,
+      "mananas_tardes": 104,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 73,
+      "jornada_teorica": 1477,
+      "jornada_realizar": 1478
+    },
+    {
+      "numero_noches": 76,
+      "libre_salida_noches": 76,
+      "mananas_tardes": 102,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 73,
+      "jornada_teorica": 1477,
+      "jornada_realizar": 1474
+    },
+    {
+      "numero_noches": 77,
+      "libre_salida_noches": 77,
+      "mananas_tardes": 101,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 72,
+      "jornada_teorica": 1476,
+      "jornada_realizar": 1477
+    },
+    {
+      "numero_noches": 78,
+      "libre_salida_noches": 78,
+      "mananas_tardes": 99,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 72,
+      "jornada_teorica": 1476,
+      "jornada_realizar": 1473
+    },
+    {
+      "numero_noches": 79,
+      "libre_salida_noches": 79,
+      "mananas_tardes": 98,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 71,
+      "jornada_teorica": 1476,
+      "jornada_realizar": 1476
+    },
+    {
+      "numero_noches": 80,
+      "libre_salida_noches": 80,
+      "mananas_tardes": 96,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 71,
+      "jornada_teorica": 1475,
+      "jornada_realizar": 1472
+    },
+    {
+      "numero_noches": 81,
+      "libre_salida_noches": 81,
+      "mananas_tardes": 95,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 70,
+      "jornada_teorica": 1475,
+      "jornada_realizar": 1475
+    },
+    {
+      "numero_noches": 82,
+      "libre_salida_noches": 82,
+      "mananas_tardes": 93,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 70,
+      "jornada_teorica": 1474,
+      "jornada_realizar": 1471
+    },
+    {
+      "numero_noches": 83,
+      "libre_salida_noches": 83,
+      "mananas_tardes": 92,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 69,
+      "jornada_teorica": 1474,
+      "jornada_realizar": 1474
+    },
+    {
+      "numero_noches": 84,
+      "libre_salida_noches": 84,
+      "mananas_tardes": 91,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 68,
+      "jornada_teorica": 1474,
+      "jornada_realizar": 1477
+    },
+    {
+      "numero_noches": 85,
+      "libre_salida_noches": 85,
+      "mananas_tardes": 89,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 68,
+      "jornada_teorica": 1473,
+      "jornada_realizar": 1473
+    },
+    {
+      "numero_noches": 86,
+      "libre_salida_noches": 86,
+      "mananas_tardes": 88,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 67,
+      "jornada_teorica": 1473,
+      "jornada_realizar": 1476
+    },
+    {
+      "numero_noches": 87,
+      "libre_salida_noches": 87,
+      "mananas_tardes": 86,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 67,
+      "jornada_teorica": 1472,
+      "jornada_realizar": 1472
+    },
+    {
+      "numero_noches": 88,
+      "libre_salida_noches": 88,
+      "mananas_tardes": 85,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 66,
+      "jornada_teorica": 1472,
+      "jornada_realizar": 1475
+    },
+    {
+      "numero_noches": 89,
+      "libre_salida_noches": 89,
+      "mananas_tardes": 83,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 66,
+      "jornada_teorica": 1472,
+      "jornada_realizar": 1471
+    },
+    {
+      "numero_noches": 90,
+      "libre_salida_noches": 90,
+      "mananas_tardes": 82,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 65,
+      "jornada_teorica": 1471,
+      "jornada_realizar": 1474
+    },
+    {
+      "numero_noches": 91,
+      "libre_salida_noches": 91,
+      "mananas_tardes": 80,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 65,
+      "jornada_teorica": 1471,
+      "jornada_realizar": 1470
+    },
+    {
+      "numero_noches": 92,
+      "libre_salida_noches": 92,
+      "mananas_tardes": 79,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 64,
+      "jornada_teorica": 1470,
+      "jornada_realizar": 1473
+    },
+    {
+      "numero_noches": 93,
+      "libre_salida_noches": 93,
+      "mananas_tardes": 77,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 64,
+      "jornada_teorica": 1470,
+      "jornada_realizar": 1469
+    },
+    {
+      "numero_noches": 94,
+      "libre_salida_noches": 94,
+      "mananas_tardes": 76,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 63,
+      "jornada_teorica": 1470,
+      "jornada_realizar": 1472
+    },
+    {
+      "numero_noches": 95,
+      "libre_salida_noches": 95,
+      "mananas_tardes": 74,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 63,
+      "jornada_teorica": 1469,
+      "jornada_realizar": 1468
+    },
+    {
+      "numero_noches": 96,
+      "libre_salida_noches": 96,
+      "mananas_tardes": 73,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 62,
+      "jornada_teorica": 1469,
+      "jornada_realizar": 1471
+    },
+    {
+      "numero_noches": 97,
+      "libre_salida_noches": 97,
+      "mananas_tardes": 71,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 62,
+      "jornada_teorica": 1468,
+      "jornada_realizar": 1467
+    },
+    {
+      "numero_noches": 98,
+      "libre_salida_noches": 98,
+      "mananas_tardes": 70,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 61,
+      "jornada_teorica": 1468,
+      "jornada_realizar": 1470
+    },
+    {
+      "numero_noches": 99,
+      "libre_salida_noches": 99,
+      "mananas_tardes": 68,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 61,
+      "jornada_teorica": 1468,
+      "jornada_realizar": 1466
+    },
+    {
+      "numero_noches": 100,
+      "libre_salida_noches": 100,
+      "mananas_tardes": 67,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 60,
+      "jornada_teorica": 1467,
+      "jornada_realizar": 1469
+    },
+    {
+      "numero_noches": 101,
+      "libre_salida_noches": 101,
+      "mananas_tardes": 65,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 60,
+      "jornada_teorica": 1467,
+      "jornada_realizar": 1465
+    },
+    {
+      "numero_noches": 102,
+      "libre_salida_noches": 102,
+      "mananas_tardes": 64,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 59,
+      "jornada_teorica": 1466,
+      "jornada_realizar": 1468
+    },
+    {
+      "numero_noches": 103,
+      "libre_salida_noches": 103,
+      "mananas_tardes": 62,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 59,
+      "jornada_teorica": 1466,
+      "jornada_realizar": 1464
+    },
+    {
+      "numero_noches": 104,
+      "libre_salida_noches": 104,
+      "mananas_tardes": 61,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 58,
+      "jornada_teorica": 1465,
+      "jornada_realizar": 1467
+    },
+    {
+      "numero_noches": 105,
+      "libre_salida_noches": 105,
+      "mananas_tardes": 59,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 58,
+      "jornada_teorica": 1465,
+      "jornada_realizar": 1463
+    },
+    {
+      "numero_noches": 106,
+      "libre_salida_noches": 106,
+      "mananas_tardes": 58,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 57,
+      "jornada_teorica": 1465,
+      "jornada_realizar": 1466
+    },
+    {
+      "numero_noches": 107,
+      "libre_salida_noches": 107,
+      "mananas_tardes": 56,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 57,
+      "jornada_teorica": 1464,
+      "jornada_realizar": 1462
+    },
+    {
+      "numero_noches": 108,
+      "libre_salida_noches": 108,
+      "mananas_tardes": 55,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 56,
+      "jornada_teorica": 1464,
+      "jornada_realizar": 1465
+    },
+    {
+      "numero_noches": 109,
+      "libre_salida_noches": 109,
+      "mananas_tardes": 53,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 56,
+      "jornada_teorica": 1463,
+      "jornada_realizar": 1461
+    },
+    {
+      "numero_noches": 110,
+      "libre_salida_noches": 110,
+      "mananas_tardes": 52,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 55,
+      "jornada_teorica": 1463,
+      "jornada_realizar": 1464
+    },
+    {
+      "numero_noches": 111,
+      "libre_salida_noches": 111,
+      "mananas_tardes": 50,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 55,
+      "jornada_teorica": 1463,
+      "jornada_realizar": 1460
+    },
+    {
+      "numero_noches": 112,
+      "libre_salida_noches": 112,
+      "mananas_tardes": 49,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 54,
+      "jornada_teorica": 1462,
+      "jornada_realizar": 1463
+    },
+    {
+      "numero_noches": 113,
+      "libre_salida_noches": 113,
+      "mananas_tardes": 47,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 54,
+      "jornada_teorica": 1462,
+      "jornada_realizar": 1459
+    },
+    {
+      "numero_noches": 114,
+      "libre_salida_noches": 114,
+      "mananas_tardes": 46,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 53,
+      "jornada_teorica": 1461,
+      "jornada_realizar": 1462
+    },
+    {
+      "numero_noches": 115,
+      "libre_salida_noches": 115,
+      "mananas_tardes": 44,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 53,
+      "jornada_teorica": 1461,
+      "jornada_realizar": 1458
+    },
+    {
+      "numero_noches": 116,
+      "libre_salida_noches": 116,
+      "mananas_tardes": 43,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 52,
+      "jornada_teorica": 1461,
+      "jornada_realizar": 1461
+    },
+    {
+      "numero_noches": 117,
+      "libre_salida_noches": 117,
+      "mananas_tardes": 41,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 52,
+      "jornada_teorica": 1460,
+      "jornada_realizar": 1457
+    },
+    {
+      "numero_noches": 118,
+      "libre_salida_noches": 118,
+      "mananas_tardes": 40,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 51,
+      "jornada_teorica": 1460,
+      "jornada_realizar": 1460
+    },
+    {
+      "numero_noches": 119,
+      "libre_salida_noches": 119,
+      "mananas_tardes": 38,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 51,
+      "jornada_teorica": 1459,
+      "jornada_realizar": 1456
+    },
+    {
+      "numero_noches": 120,
+      "libre_salida_noches": 120,
+      "mananas_tardes": 37,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 50,
+      "jornada_teorica": 1459,
+      "jornada_realizar": 1459
+    },
+    {
+      "numero_noches": 121,
+      "libre_salida_noches": 121,
+      "mananas_tardes": 36,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 49,
+      "jornada_teorica": 1459,
+      "jornada_realizar": 1462
+    },
+    {
+      "numero_noches": 122,
+      "libre_salida_noches": 122,
+      "mananas_tardes": 34,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 49,
+      "jornada_teorica": 1458,
+      "jornada_realizar": 1458
+    },
+    {
+      "numero_noches": 123,
+      "libre_salida_noches": 123,
+      "mananas_tardes": 33,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 48,
+      "jornada_teorica": 1458,
+      "jornada_realizar": 1461
+    },
+    {
+      "numero_noches": 124,
+      "libre_salida_noches": 124,
+      "mananas_tardes": 31,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 48,
+      "jornada_teorica": 1457,
+      "jornada_realizar": 1457
+    },
+    {
+      "numero_noches": 125,
+      "libre_salida_noches": 125,
+      "mananas_tardes": 30,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 47,
+      "jornada_teorica": 1457,
+      "jornada_realizar": 1460
+    },
+    {
+      "numero_noches": 126,
+      "libre_salida_noches": 126,
+      "mananas_tardes": 28,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 47,
+      "jornada_teorica": 1457,
+      "jornada_realizar": 1456
+    },
+    {
+      "numero_noches": 127,
+      "libre_salida_noches": 127,
+      "mananas_tardes": 27,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 46,
+      "jornada_teorica": 1456,
+      "jornada_realizar": 1459
+    },
+    {
+      "numero_noches": 128,
+      "libre_salida_noches": 128,
+      "mananas_tardes": 25,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 46,
+      "jornada_teorica": 1456,
+      "jornada_realizar": 1455
+    },
+    {
+      "numero_noches": 129,
+      "libre_salida_noches": 129,
+      "mananas_tardes": 24,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 45,
+      "jornada_teorica": 1455,
+      "jornada_realizar": 1458
+    },
+    {
+      "numero_noches": 130,
+      "libre_salida_noches": 130,
+      "mananas_tardes": 22,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 45,
+      "jornada_teorica": 1455,
+      "jornada_realizar": 1454
+    },
+    {
+      "numero_noches": 131,
+      "libre_salida_noches": 131,
+      "mananas_tardes": 21,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 44,
+      "jornada_teorica": 1454,
+      "jornada_realizar": 1457
+    },
+    {
+      "numero_noches": 132,
+      "libre_salida_noches": 132,
+      "mananas_tardes": 19,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 44,
+      "jornada_teorica": 1454,
+      "jornada_realizar": 1453
+    },
+    {
+      "numero_noches": 133,
+      "libre_salida_noches": 133,
+      "mananas_tardes": 18,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 43,
+      "jornada_teorica": 1454,
+      "jornada_realizar": 1456
+    },
+    {
+      "numero_noches": 134,
+      "libre_salida_noches": 134,
+      "mananas_tardes": 16,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 43,
+      "jornada_teorica": 1453,
+      "jornada_realizar": 1452
+    },
+    {
+      "numero_noches": 135,
+      "libre_salida_noches": 135,
+      "mananas_tardes": 15,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 42,
+      "jornada_teorica": 1452,
+      "jornada_realizar": 1455
+    },
+    {
+      "numero_noches": 136,
+      "libre_salida_noches": 136,
+      "mananas_tardes": 13,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 42,
+      "jornada_teorica": 1452,
+      "jornada_realizar": 1451
+    },
+    {
+      "numero_noches": 137,
+      "libre_salida_noches": 137,
+      "mananas_tardes": 12,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 41,
+      "jornada_teorica": 1452,
+      "jornada_realizar": 1454
+    },
+    {
+      "numero_noches": 138,
+      "libre_salida_noches": 138,
+      "mananas_tardes": 10,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 41,
+      "jornada_teorica": 1452,
+      "jornada_realizar": 1450
+    },
+    {
+      "numero_noches": 139,
+      "libre_salida_noches": 139,
+      "mananas_tardes": 9,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 40,
+      "jornada_teorica": 1451,
+      "jornada_realizar": 1453
+    },
+    {
+      "numero_noches": 140,
+      "libre_salida_noches": 140,
+      "mananas_tardes": 7,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 40,
+      "jornada_teorica": 1451,
+      "jornada_realizar": 1449
+    },
+    {
+      "numero_noches": 141,
+      "libre_salida_noches": 141,
+      "mananas_tardes": 6,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 39,
+      "jornada_teorica": 1450,
+      "jornada_realizar": 1452
+    },
+    {
+      "numero_noches": 142,
+      "libre_salida_noches": 142,
+      "mananas_tardes": 4,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 39,
+      "jornada_teorica": 1450,
+      "jornada_realizar": 1448
+    },
+    {
+      "numero_noches": 143,
+      "libre_salida_noches": 143,
+      "mananas_tardes": 3,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 38,
+      "jornada_teorica": 1450,
+      "jornada_realizar": 1451
+    },
+    {
+      "numero_noches": 144,
+      "libre_salida_noches": 144,
+      "mananas_tardes": 1,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 38,
+      "jornada_teorica": 1449,
+      "jornada_realizar": 1447
+    },
+    {
+      "numero_noches": 145,
+      "libre_salida_noches": 145,
+      "mananas_tardes": 0,
+      "vacaciones": 30,
+      "libres_disposicion": 8,
+      "otros_libres_festivos_domingos_variable": 37,
+      "jornada_teorica": 1449,
+      "jornada_realizar": 1450
+    }
+  ]
+};
+
+
+// ---- src/js/utils/dateUtils.js ----
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function parseDate(value) {
+  if (!value) return null;
+  const [year, month, day] = String(value).split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function formatDate(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function daysBetween(startDate, endDate) {
+  const start = parseDate(startDate);
+  const end = parseDate(endDate);
+  return Math.round((end.getTime() - start.getTime()) / DAY_MS);
+}
+
+function daysInMonth(year, monthIndex) {
+  return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+}
+
+function monthDates(year, monthIndex) {
+  const total = daysInMonth(year, monthIndex);
+  return Array.from({ length: total }, (_, index) => formatDate(new Date(Date.UTC(year, monthIndex, index + 1))));
+}
+
+function weekdayIndex(dateString) {
+  return parseDate(dateString).getUTCDay();
+}
+
+function isWithinRange(dateString, startDate, endDate) {
+  if (startDate && daysBetween(startDate, dateString) < 0) return false;
+  if (endDate && daysBetween(dateString, endDate) < 0) return false;
+  return true;
+}
+
+
+// ---- src/js/domain/turnos.js ----
+const GRUPOS_COBERTURA = ["manana", "tarde", "noche", "diurno12", "nocturno12", "libre", "otro"];
+
+function crearTurnosIniciales() {
+  return [
+    turno("M", "Manana", "08:00", "15:00", 7, "manana", "#f8d66d", false),
+    turno("T", "Tarde", "15:00", "22:00", 7, "tarde", "#f5a85b", false),
+    turno("N", "Noche", "22:00", "08:00", 10, "noche", "#6fa8dc", true),
+    turno("D12", "Diurno 12 h", "08:00", "20:00", 12, "diurno12", "#b7d7f4", false),
+    turno("N12", "Nocturno 12 h", "20:00", "08:00", 12, "noche", "#4b8ccc", true),
+    turno("L", "Libre", "", "", 0, "libre", "#b7dfae", false),
+  ];
+}
+
+function turno(codigo, nombre, inicio, fin, horasComputables, grupoCobertura, color, cruzaMedianoche) {
+  return {
+    id: crypto.randomUUID(),
+    codigo,
+    nombre,
+    inicio,
+    fin,
+    horasComputables: Number(horasComputables),
+    grupoCobertura,
+    color,
+    cruzaMedianoche: Boolean(cruzaMedianoche),
+    activo: true,
+  };
+}
+
+function validarTurno(turnoActual, turnos) {
+  const errores = [];
+  if (!turnoActual.codigo || turnoActual.codigo.length > 6) errores.push("El codigo es obligatorio y debe ser corto.");
+  if (!turnoActual.nombre) errores.push("El nombre del turno es obligatorio.");
+  if (Number(turnoActual.horasComputables) < 0) errores.push("Las horas computables no pueden ser negativas.");
+  if (!/^#[0-9a-f]{6}$/i.test(turnoActual.color)) errores.push("El color debe ser hexadecimal.");
+  const duplicado = turnos.some((item) => item.codigo.toUpperCase() === turnoActual.codigo.toUpperCase() && item.id !== turnoActual.id);
+  if (duplicado) errores.push("Ya existe un turno con ese codigo.");
+  return errores;
+}
+
+function buscarTurnoPorCodigo(turnos, codigo) {
+  return turnos.find((turnoItem) => turnoItem.codigo.toUpperCase() === String(codigo).toUpperCase()) || null;
+}
+
+
+// ---- src/js/domain/ciclos.js ----
+
+function moduloPositivo(n, m) {
+  if (!m) throw new Error("La longitud del ciclo debe ser mayor que cero.");
+  return ((n % m) + m) % m;
+}
+
+function parsearSecuencia(texto) {
+  return String(texto)
+    .split(/[\s,;·|\-]+/u)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function validarSecuencia(codigos, turnos) {
+  const errores = [];
+  if (!codigos.length) errores.push("El ciclo necesita al menos una posicion.");
+  const noEncontrados = codigos.filter((codigo) => !buscarTurnoPorCodigo(turnos, codigo));
+  if (noEncontrados.length) errores.push(`Turnos no encontrados: ${[...new Set(noEncontrados)].join(", ")}`);
+  return errores;
+}
+
+function crearCiclo(nombre, codigos, turnos) {
+  const errores = validarSecuencia(codigos, turnos);
+  if (errores.length) throw new Error(errores.join(" "));
+  return {
+    id: crypto.randomUUID(),
+    nombre,
+    codigos,
+    activo: true,
+    archivado: false,
+  };
+}
+
+function turnoParaFecha(ciclo, fechaConsultada, fechaInicioCiclo, posicionInicial, daysBetweenFn) {
+  if (!ciclo || !ciclo.codigos?.length || !fechaInicioCiclo) return null;
+  const diasTranscurridos = daysBetweenFn(fechaInicioCiclo, fechaConsultada);
+  const indice = moduloPositivo(diasTranscurridos + Number(posicionInicial || 0), ciclo.codigos.length);
+  return ciclo.codigos[indice];
+}
+
+function resumenCiclo(ciclo, turnos) {
+  const resumen = {
+    longitud: ciclo?.codigos?.length || 0,
+    horasTotales: 0,
+    mananas: 0,
+    tardes: 0,
+    noches: 0,
+    turnos12: 0,
+    libres: 0,
+    otros: 0,
+    promedioSemanal: 0,
+  };
+  for (const codigo of ciclo?.codigos || []) {
+    const turno = buscarTurnoPorCodigo(turnos, codigo);
+    if (!turno) continue;
+    resumen.horasTotales += Number(turno.horasComputables || 0);
+    if (turno.grupoCobertura === "manana") resumen.mananas += 1;
+    else if (turno.grupoCobertura === "tarde") resumen.tardes += 1;
+    else if (turno.grupoCobertura === "noche") resumen.noches += 1;
+    else if (turno.grupoCobertura === "libre") resumen.libres += 1;
+    else resumen.otros += 1;
+    if (Number(turno.horasComputables) >= 12) resumen.turnos12 += 1;
+  }
+  resumen.promedioSemanal = resumen.longitud ? (resumen.horasTotales / resumen.longitud) * 7 : 0;
+  return resumen;
+}
+
+
+// ---- src/js/domain/normativa.js ----
+
+const MODALIDADES = [
+  { id: "diurno", nombre: "Diurno", tipo: "fijo", key: "turnoDiurno" },
+  { id: "nocturno", nombre: "Nocturno", tipo: "fijo", key: "turnoNocturno" },
+  { id: "rotatorio", nombre: "Rotatorio", tipo: "tabla" },
+  { id: "atencionContinuadaAP", nombre: "Atencion continuada AP", tipo: "fijo", key: "atencionContinuadaAtencionPrimaria" },
+  { id: "emergencias", nombre: "Emergencias / centro coordinador", tipo: "fijo", key: "unidadMovilEmergenciasCentroCoordinador" },
+  { id: "suap", nombre: "SUAP", tipo: "fijo", key: "suap" },
+  { id: "personalizado", nombre: "Personalizada", tipo: "manual" },
+];
+
+function obtenerFilaPonderacion(numeroNoches) {
+  return PERFIL_NORMATIVO_SESCAM_2019.tablaPonderacion.find((fila) => fila.numero_noches === Number(numeroNoches)) || null;
+}
+
+function calcularJornadaObjetivo({ modalidad, porcentajeJornada = 100, noches = 0, jornadaPersonalizada = 0, jornadaManual = null }) {
+  const porcentaje = Number(porcentajeJornada || 100) / 100;
+  const modalidadInfo = MODALIDADES.find((item) => item.id === modalidad) || MODALIDADES[0];
+  let base = 0;
+  let origen = "valor fijo";
+  let filaPonderacion = null;
+  let advertencia = "";
+
+  if (modalidadInfo.tipo === "tabla") {
+    filaPonderacion = obtenerFilaPonderacion(noches);
+    if (!filaPonderacion) {
+      advertencia = "Numero de noches fuera de la tabla oficial disponible.";
+      base = 0;
+    } else {
+      base = Number(filaPonderacion.jornada_realizar);
+      origen = "tabla de ponderacion";
+    }
+  } else if (modalidadInfo.tipo === "manual") {
+    base = Number(jornadaPersonalizada || 0);
+    origen = "valor personalizado";
+  } else {
+    base = Number(PERFIL_NORMATIVO_SESCAM_2019.jornadasFijas[modalidadInfo.key]);
+  }
+
+  const automatica = roundHours(base * porcentaje);
+  const objetivo = jornadaManual !== null && jornadaManual !== "" ? Number(jornadaManual) : automatica;
+
+  return {
+    modalidad: modalidadInfo,
+    base,
+    porcentaje,
+    automatica,
+    objetivo,
+    origen,
+    filaPonderacion,
+    advertencia,
+  };
+}
+
+function requiereAdvertenciaProrrata(profesional, year) {
+  const inicio = `${year}-01-01`;
+  const fin = `${year}-12-31`;
+  return Boolean((profesional.fechaInicio && profesional.fechaInicio > inicio) || (profesional.fechaFin && profesional.fechaFin < fin));
+}
+
+function roundHours(value) {
+  return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+}
+
+
+
+// ---- src/js/domain/generadorCalendario.js ----
+
+
+
+function generarCalendarioAnual(state) {
+  const year = Number(state.config.anioActivo);
+  const resultado = {};
+  for (const profesional of state.profesionales) {
+    resultado[profesional.id] = {};
+    for (let month = 0; month < 12; month += 1) {
+      for (const fecha of monthDates(year, month)) {
+        resultado[profesional.id][fecha] = generarDia(profesional, fecha, state);
+      }
+    }
+  }
+  return resultado;
+}
+
+function generarDia(profesional, fecha, state) {
+  if (!profesional.activo || !isWithinRange(fecha, profesional.fechaInicio, profesional.fechaFin)) {
+    return { fecha, codigo: "", horas: 0, esNoche: false, fueraContrato: true };
+  }
+  const ciclo = state.ciclos.find((item) => item.id === profesional.cicloId && item.activo && !item.archivado);
+  const codigo = turnoParaFecha(ciclo, fecha, profesional.fechaInicioCiclo, profesional.posicionInicial, daysBetween);
+  if (!codigo) return { fecha, codigo: "", horas: 0, esNoche: false, sinCiclo: true };
+  const turno = buscarTurnoPorCodigo(state.turnos, codigo);
+  if (!turno) return { fecha, codigo, horas: 0, esNoche: false, error: "Turno no encontrado" };
+  return {
+    fecha,
+    codigo: turno.codigo,
+    horas: Number(turno.horasComputables || 0),
+    esNoche: turno.grupoCobertura === "noche",
+    grupoCobertura: turno.grupoCobertura,
+    turnoId: turno.id,
+  };
+}
+
+
+// ---- src/js/domain/calculoJornada.js ----
+
+
+function calcularResumenProfesional(profesional, calendario, state) {
+  const year = Number(state.config.anioActivo);
+  const dias = calendario[profesional.id] || {};
+  const horasMes = [];
+  let total = 0;
+  let noches = 0;
+  const desglose = { mananas: 0, tardes: 0, noches: 0, turnos12: 0, libres: 0, otros: 0 };
+
+  for (let month = 0; month < 12; month += 1) {
+    let horas = 0;
+    for (const fecha of monthDates(year, month)) {
+      const dia = dias[fecha];
+      if (!dia) continue;
+      horas += Number(dia.horas || 0);
+      if (dia.esNoche) noches += 1;
+      if (dia.codigo) contarDesglose(dia, desglose);
+    }
+    horasMes.push(roundHours(horas));
+    total += horas;
+  }
+
+  const jornada = calcularJornadaObjetivo({
+    modalidad: profesional.modalidad,
+    porcentajeJornada: profesional.porcentajeJornada,
+    noches,
+    jornadaPersonalizada: state.config.jornadaPersonalizada,
+    jornadaManual: profesional.jornadaManual,
+  });
+  const diferencia = roundHours(total - jornada.objetivo);
+
+  return {
+    profesionalId: profesional.id,
+    horasMes,
+    total: roundHours(total),
+    noches,
+    jornada,
+    diferencia,
+    estado: diferencia === 0 ? "ajustado" : diferencia > 0 ? "exceso" : "deficit",
+    prorrataPendiente: requiereAdvertenciaProrrata(profesional, year),
+    desglose,
+  };
+}
+
+function calcularResumenGlobal(state, calendario) {
+  return state.profesionales.map((profesional) => calcularResumenProfesional(profesional, calendario, state));
+}
+
+function contarDesglose(dia, desglose) {
+  if (dia.grupoCobertura === "manana") desglose.mananas += 1;
+  else if (dia.grupoCobertura === "tarde") desglose.tardes += 1;
+  else if (dia.grupoCobertura === "noche") desglose.noches += 1;
+  else if (dia.grupoCobertura === "libre") desglose.libres += 1;
+  else desglose.otros += 1;
+  if (Number(dia.horas) >= 12) desglose.turnos12 += 1;
+}
+
+
+// ---- src/js/domain/estadoInicial.js ----
+
+
+function crearEstadoInicial() {
+  const turnos = crearTurnosIniciales();
+  return {
+    schemaVersion: 1,
+    config: {
+      unidad: "Unidad de Enfermeria",
+      hospital: "Hospital",
+      anioActivo: new Date().getFullYear(),
+      perfilNormativoId: PERFIL_NORMATIVO_SESCAM_2019.id,
+      jornadaPersonalizada: 1519,
+    },
+    turnos,
+    ciclos: [
+      {
+        id: crypto.randomUUID(),
+        nombre: "Rotatorio base MMTTNNLLL",
+        codigos: ["M", "M", "T", "T", "N", "N", "L", "L", "L"],
+        activo: true,
+        archivado: false,
+      },
+    ],
+    profesionales: [],
+  };
+}
+
+function crearProfesionalBase(state) {
+  const index = state.profesionales.length + 1;
+  return {
+    id: crypto.randomUUID(),
+    identificador: `P${String(index).padStart(3, "0")}`,
+    nombre: "",
+    categoria: "Enfermeria",
+    porcentajeJornada: 100,
+    modalidad: "rotatorio",
+    fechaInicio: `${state.config.anioActivo}-01-01`,
+    fechaFin: `${state.config.anioActivo}-12-31`,
+    cicloId: state.ciclos[0]?.id || "",
+    posicionInicial: 0,
+    fechaInicioCiclo: `${state.config.anioActivo}-01-01`,
+    jornadaManual: "",
+    activo: true,
+  };
+}
+
+
+// ---- src/js/storage/indexedDb.js ----
+const DB_NAME = "gestor_turnos_enfermeria";
+const DB_VERSION = 1;
+const STORE = "appState";
+const STATE_KEY = "current";
+
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function loadState() {
+  const db = await openDb();
+  return tx(db, "readonly", (store) => store.get(STATE_KEY));
+}
+
+async function saveState(state) {
+  const db = await openDb();
+  const payload = structuredClone(state);
+  payload.updatedAt = new Date().toISOString();
+  return tx(db, "readwrite", (store) => store.put(payload, STATE_KEY));
+}
+
+async function clearState() {
+  const db = await openDb();
+  return tx(db, "readwrite", (store) => store.delete(STATE_KEY));
+}
+
+function tx(db, mode, operation) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE, mode);
+    const store = transaction.objectStore(STORE);
+    const request = operation(store);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
+
+
+// ---- src/js/services/backupService.js ----
+
+function crearBackup(state) {
+  return {
+    schemaVersion: 1,
+    app: "gestor-turnos-enfermeria",
+    exportedAt: new Date().toISOString(),
+    perfilNormativo: PERFIL_NORMATIVO_SESCAM_2019,
+    data: state,
+  };
+}
+
+function validarBackup(payload) {
+  const errores = [];
+  if (!payload || typeof payload !== "object") errores.push("El archivo no contiene JSON valido.");
+  if (payload?.schemaVersion !== 1) errores.push("Version de esquema no compatible.");
+  if (payload?.app !== "gestor-turnos-enfermeria") errores.push("La copia no corresponde a esta aplicacion.");
+  if (!payload?.data?.config || !Array.isArray(payload?.data?.profesionales)) errores.push("La estructura de datos esta incompleta.");
+  return errores;
+}
+
+function descargarJson(nombre, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = nombre;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+
+// ---- src/js/ui/render.js ----
+
+
+
+const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const DIAS = ["D", "L", "M", "X", "J", "V", "S"];
+
+function renderApp(root, state, calendario, resumenes, activeTab = "inicio", selectedMonth = 0, runtimeNotice = "") {
+  root.innerHTML = `
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">Gestor local de turnos de enfermeria</div>
+        ${nav(activeTab)}
+        <div class="status-pill">Funcionamiento local · Datos almacenados en este equipo</div>
+      </aside>
+      <main class="main">
+        <header class="topbar">
+          <h1>Gestor local de turnos de enfermeria</h1>
+          <div class="topbar-meta">
+            <span>Unidad: <strong>${escapeHtml(state.config.unidad)}</strong></span>
+            <span>Año activo: <strong>${state.config.anioActivo}</strong></span>
+            <span>Perfil: <strong>${escapeHtml(PERFIL_NORMATIVO_SESCAM_2019.nombre)}</strong></span>
+          </div>
+        </header>
+        <div class="content">
+          ${runtimeNotice ? `<div class="notice notice-warn">${escapeHtml(runtimeNotice)}</div>` : ""}
+          ${section("inicio", activeTab, renderInicio(state, resumenes))}
+          ${section("config", activeTab, renderConfig(state))}
+          ${section("profesionales", activeTab, renderProfesionales(state, resumenes))}
+          ${section("turnos", activeTab, renderTurnos(state))}
+          ${section("ciclos", activeTab, renderCiclos(state))}
+          ${section("cuadrante", activeTab, renderCuadrante(state, calendario, selectedMonth))}
+          ${section("jornada", activeTab, renderJornada(state, resumenes))}
+          ${section("copias", activeTab, renderCopias())}
+        </div>
+      </main>
+    </div>
+  `;
+}
+
+function nav(activeTab) {
+  const items = [
+    ["inicio", "Inicio"],
+    ["config", "Configuracion"],
+    ["profesionales", "Profesionales"],
+    ["turnos", "Turnos"],
+    ["ciclos", "Ciclos"],
+    ["cuadrante", "Cuadrante"],
+    ["jornada", "Jornada"],
+    ["copias", "Copias"],
+  ];
+  return items.map(([id, label]) => `<button class="nav-button ${activeTab === id ? "active" : ""}" data-tab="${id}">${label}</button>`).join("");
+}
+
+function section(id, activeTab, content) {
+  return `<section id="${id}" class="section ${activeTab === id ? "active" : ""}">${content}</section>`;
+}
+
+function renderInicio(state, resumenes) {
+  const sinCiclo = state.profesionales.filter((p) => !p.cicloId).length;
+  const exceso = resumenes.filter((r) => r.estado === "exceso").length;
+  const deficit = resumenes.filter((r) => r.estado === "deficit").length;
+  return `
+    <div class="grid cols-4">
+      ${metric("Profesionales", state.profesionales.length)}
+      ${metric("Turnos", state.turnos.length)}
+      ${metric("Ciclos", state.ciclos.length)}
+      ${metric("Sin ciclo", sinCiclo)}
+      ${metric("Con exceso", exceso)}
+      ${metric("Con deficit", deficit)}
+      ${metric("Año", state.config.anioActivo)}
+      ${metric("Tabla noches", "0-145")}
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h2>Estado V0.1</h2>
+      <p class="muted">Aplicacion local sin servidor. Los calculos se realizan en el navegador y se guardan en IndexedDB.</p>
+      <div class="notice">La fuente adjunta incluye 146 filas de ponderacion, desde 0 hasta 145 noches. La noche 146 queda pendiente de validacion documental.</div>
+    </div>
+  `;
+}
+
+function renderConfig(state) {
+  return `
+    <div class="card">
+      <h2>Configuracion</h2>
+      <form id="configForm" class="form-grid">
+        <label>Unidad<input name="unidad" value="${escapeAttr(state.config.unidad)}"></label>
+        <label>Hospital<input name="hospital" value="${escapeAttr(state.config.hospital)}"></label>
+        <label>Año<input name="anioActivo" type="number" min="2000" max="2100" value="${state.config.anioActivo}"></label>
+        <label>Jornada personalizada<input name="jornadaPersonalizada" type="number" step="0.01" value="${state.config.jornadaPersonalizada}"></label>
+        <div class="actions"><button type="submit">Guardar configuracion</button></div>
+      </form>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h3>Perfil normativo</h3>
+      <p><strong>${escapeHtml(PERFIL_NORMATIVO_SESCAM_2019.nombre)}</strong></p>
+      <p class="muted">${escapeHtml(PERFIL_NORMATIVO_SESCAM_2019.fuente.descripcion || PERFIL_NORMATIVO_SESCAM_2019.fuente.titulo || "Resolucion de 28 de diciembre de 2018")}</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Modalidad</th><th>Jornada</th><th>Origen</th></tr></thead>
+        <tbody>
+          <tr><td>Diurno</td><td>1.519 h</td><td>Valor fijo</td></tr>
+          <tr><td>Nocturno</td><td>1.450 h</td><td>Valor fijo</td></tr>
+          <tr><td>Rotatorio</td><td>Segun noches</td><td>Tabla Anexo I 0-145</td></tr>
+          <tr><td>Atencion continuada AP</td><td>1.500 h</td><td>Valor fijo</td></tr>
+          <tr><td>Emergencias / centro coordinador</td><td>1.488 h</td><td>Valor fijo</td></tr>
+          <tr><td>SUAP</td><td>1.488 h</td><td>Valor fijo</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  `;
+}
+
+function renderProfesionales(state, resumenes) {
+  return `
+    <div class="card">
+      <h2>Profesionales</h2>
+      <form id="profesionalForm" class="form-grid">
+        <input type="hidden" name="id">
+        <label>Nombre y apellidos<input name="nombre" required></label>
+        <label>Categoria<input name="categoria" value="Enfermeria"></label>
+        <label>% jornada<input name="porcentajeJornada" type="number" min="1" max="100" step="0.01" value="100"></label>
+        <label>Modalidad<select name="modalidad">${options(MODALIDADES.map((m) => [m.id, m.nombre]))}</select></label>
+        <label>Fecha inicio<input name="fechaInicio" type="date" value="${state.config.anioActivo}-01-01"></label>
+        <label>Fecha fin<input name="fechaFin" type="date" value="${state.config.anioActivo}-12-31"></label>
+        <label>Ciclo<select name="cicloId"><option value="">Sin ciclo</option>${options(state.ciclos.map((c) => [c.id, c.nombre]))}</select></label>
+        <label>Posicion inicial<input name="posicionInicial" type="number" value="0"></label>
+        <label>Inicio ciclo<input name="fechaInicioCiclo" type="date" value="${state.config.anioActivo}-01-01"></label>
+        <label>Jornada manual<input name="jornadaManual" type="number" step="0.01" placeholder="Opcional"></label>
+        <div class="actions"><button type="submit">Guardar profesional</button><button type="button" class="secondary" data-action="clear-prof-form">Limpiar</button></div>
+      </form>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <div class="table-wrap">${tablaProfesionales(state, resumenes)}</div>
+    </div>
+  `;
+}
+
+function tablaProfesionales(state, resumenes) {
+  const rows = state.profesionales.map((p) => {
+    const r = resumenes.find((item) => item.profesionalId === p.id);
+    const ciclo = state.ciclos.find((c) => c.id === p.cicloId);
+    return `<tr>
+      <td>${escapeHtml(p.identificador)}</td><td>${escapeHtml(p.nombre)}</td><td>${escapeHtml(p.categoria)}</td>
+      <td>${escapeHtml(MODALIDADES.find((m) => m.id === p.modalidad)?.nombre || p.modalidad)}</td>
+      <td>${p.porcentajeJornada}%</td><td>${escapeHtml(ciclo?.nombre || "Sin ciclo")}</td>
+      <td>${r?.noches ?? 0}</td><td>${r?.jornada.objetivo ?? 0}</td><td>${r?.total ?? 0}</td><td>${estadoBadge(r?.estado)}</td>
+      <td><button class="ghost" data-action="edit-prof" data-id="${p.id}">Editar</button><button class="ghost" data-action="delete-prof" data-id="${p.id}">Eliminar</button></td>
+    </tr>`;
+  }).join("");
+  return `<table><thead><tr><th>ID</th><th>Nombre</th><th>Categoria</th><th>Modalidad</th><th>%</th><th>Ciclo</th><th>Noches</th><th>Objetivo</th><th>Programadas</th><th>Estado</th><th></th></tr></thead><tbody>${rows || emptyRow(11)}</tbody></table>`;
+}
+
+function renderTurnos(state) {
+  return `
+    <div class="card">
+      <h2>Tipos de turno</h2>
+      <form id="turnoForm" class="form-grid">
+        <input type="hidden" name="id">
+        <label>Codigo<input name="codigo" maxlength="6" required></label>
+        <label>Nombre<input name="nombre" required></label>
+        <label>Hora inicio<input name="inicio" type="time"></label>
+        <label>Hora fin<input name="fin" type="time"></label>
+        <label>Horas computables<input name="horasComputables" type="number" min="0" step="0.01" required></label>
+        <label>Grupo<select name="grupoCobertura">${options([["manana","Manana"],["tarde","Tarde"],["noche","Noche"],["diurno12","Diurno 12h"],["nocturno12","Nocturno 12h"],["libre","Libre"],["otro","Otro"]])}</select></label>
+        <label>Color<input name="color" type="color" value="#6fa8dc"></label>
+        <label>Atraviesa medianoche<select name="cruzaMedianoche"><option value="false">No</option><option value="true">Si</option></select></label>
+        <div class="actions"><button type="submit">Guardar turno</button><button type="button" class="secondary" data-action="clear-turno-form">Limpiar</button></div>
+      </form>
+    </div>
+    <div class="card" style="margin-top:14px"><div class="table-wrap">${tablaTurnos(state)}</div></div>
+  `;
+}
+
+function tablaTurnos(state) {
+  const rows = state.turnos.map((t) => `<tr><td><span class="badge" style="background:${t.color};color:#143047">${escapeHtml(t.codigo)}</span></td><td>${escapeHtml(t.nombre)}</td><td>${t.inicio || "-"}</td><td>${t.fin || "-"}</td><td>${t.horasComputables}</td><td>${escapeHtml(t.grupoCobertura)}</td><td>${t.cruzaMedianoche ? "Si" : "No"}</td><td>${t.activo ? "Activo" : "Inactivo"}</td><td><button class="ghost" data-action="edit-turno" data-id="${t.id}">Editar</button><button class="ghost" data-action="delete-turno" data-id="${t.id}">Eliminar</button></td></tr>`).join("");
+  return `<table><thead><tr><th>Codigo</th><th>Nombre</th><th>Inicio</th><th>Fin</th><th>Horas</th><th>Grupo</th><th>Medianoche</th><th>Estado</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function renderCiclos(state) {
+  return `
+    <div class="card">
+      <h2>Ciclos</h2>
+      <form id="cicloForm" class="form-grid">
+        <input type="hidden" name="id">
+        <label>Nombre<input name="nombre" required></label>
+        <label style="grid-column: span 3">Secuencia<textarea name="secuencia" rows="2" placeholder="M, M, T, T, N, N, L, L, L"></textarea></label>
+        <div class="actions">${state.turnos.map((t) => `<button type="button" class="secondary" data-action="append-turno" data-code="${t.codigo}">${t.codigo}</button>`).join("")}</div>
+        <div class="actions"><button type="submit">Guardar ciclo</button><button type="button" class="secondary" data-action="clear-ciclo-form">Limpiar</button></div>
+      </form>
+    </div>
+    <div class="grid cols-2" style="margin-top:14px">${state.ciclos.map((c) => cicloCard(c, state)).join("")}</div>
+  `;
+}
+
+function cicloCard(ciclo, state) {
+  const r = resumenCiclo(ciclo, state.turnos);
+  return `<div class="card">
+    <h3>${escapeHtml(ciclo.nombre)}</h3>
+    <div class="sequence">${ciclo.codigos.map((codigo) => `<span>${escapeHtml(codigo)}</span>`).join("")}</div>
+    <p class="muted">Longitud ${r.longitud} · ${fmt(r.horasTotales)} h ciclo · ${fmt(r.promedioSemanal)} h/semana · Noches ${r.noches}</p>
+    <div class="actions"><button class="secondary" data-action="edit-ciclo" data-id="${ciclo.id}">Editar</button><button class="secondary" data-action="duplicate-ciclo" data-id="${ciclo.id}">Duplicar</button><button class="danger" data-action="delete-ciclo" data-id="${ciclo.id}">Eliminar</button></div>
+  </div>`;
+}
+
+function renderCuadrante(state, calendario, selectedMonth) {
+  return `
+    <div class="card">
+      <h2>Cuadrante mensual</h2>
+      <label style="max-width:260px">Mes<select id="monthSelector">${MESES.map((m, i) => `<option value="${i}" ${i === selectedMonth ? "selected" : ""}>${m}</option>`).join("")}</select></label>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <div class="table-wrap">${tablaCuadrante(state, calendario, selectedMonth)}</div>
+    </div>
+  `;
+}
+
+function tablaCuadrante(state, calendario, selectedMonth) {
+  const year = Number(state.config.anioActivo);
+  const fechas = monthDates(year, selectedMonth);
+  const today = new Date().toISOString().slice(0, 10);
+  const header = fechas.map((fecha) => {
+    const d = parseDate(fecha).getUTCDate();
+    const wd = weekdayIndex(fecha);
+    return `<th class="day-head ${wd === 0 || wd === 6 ? "weekend" : ""} ${fecha === today ? "today" : ""}">${d}<br><span class="muted">${DIAS[wd]}</span></th>`;
+  }).join("");
+  const rows = state.profesionales.map((p) => {
+    let total = 0;
+    const cells = fechas.map((fecha) => {
+      const dia = calendario[p.id]?.[fecha] || {};
+      total += Number(dia.horas || 0);
+      const turno = state.turnos.find((t) => t.codigo === dia.codigo);
+      const wd = weekdayIndex(fecha);
+      return `<td class="shift-cell ${wd === 0 || wd === 6 ? "weekend" : ""} ${fecha === today ? "today" : ""}" style="background:${turno?.color || "#fff"}" title="${escapeAttr(turno ? `${turno.nombre} · ${turno.inicio || ""}-${turno.fin || ""} · ${turno.horasComputables} h` : "Fuera de contrato o sin ciclo")}">${escapeHtml(dia.codigo || "")}</td>`;
+    }).join("");
+    return `<tr><td>${escapeHtml(p.nombre || p.identificador)}</td>${cells}<td><strong>${fmt(total)}</strong></td></tr>`;
+  }).join("");
+  return `<table class="calendar"><thead><tr><th>Profesional</th>${header}<th>Total</th></tr></thead><tbody>${rows || emptyRow(fechas.length + 2)}</tbody></table>`;
+}
+
+function renderJornada(state, resumenes) {
+  const rows = resumenes.map((r) => {
+    const p = state.profesionales.find((item) => item.id === r.profesionalId);
+    return `<tr>
+      <td>${escapeHtml(p?.nombre || "")}</td><td>${escapeHtml(MODALIDADES.find((m) => m.id === p?.modalidad)?.nombre || "")}</td>
+      <td>${r.noches}</td><td>${r.jornada.base}</td><td>${p?.porcentajeJornada}%</td><td>${r.jornada.objetivo}</td>
+      <td>${r.total}</td><td>${fmt(r.diferencia)}</td><td>${estadoBadge(r.estado)}</td>
+      <td>${r.prorrataPendiente ? '<span class="badge warn">Prorrata pendiente</span>' : ""} ${r.jornada.advertencia ? `<span class="badge danger">${escapeHtml(r.jornada.advertencia)}</span>` : ""}</td>
+    </tr>`;
+  }).join("");
+  return `<div class="card"><h2>Resumen de jornada</h2><div class="table-wrap"><table><thead><tr><th>Profesional</th><th>Modalidad</th><th>Noches</th><th>Jornada normativa</th><th>%</th><th>Objetivo</th><th>Programadas</th><th>Diferencia</th><th>Estado</th><th>Alertas</th></tr></thead><tbody>${rows || emptyRow(10)}</tbody></table></div></div>`;
+}
+
+function renderCopias() {
+  return `<div class="card">
+    <h2>Copias de seguridad</h2>
+    <p class="muted">Exporta o importa todos los datos locales. Antes de importar, la app descarga automaticamente una copia del estado actual.</p>
+    <div class="actions">
+      <button data-action="export-json">Exportar JSON</button>
+      <input class="file-input" id="importJson" type="file" accept="application/json">
+      <button class="danger" data-action="reset-data">Restablecer datos</button>
+    </div>
+  </div>`;
+}
+
+function metric(label, value) {
+  return `<div class="card metric"><div class="label">${label}</div><div class="value">${value}</div></div>`;
+}
+
+function estadoBadge(estado) {
+  if (!estado) return "";
+  const cls = estado === "ajustado" ? "ok" : estado === "exceso" ? "warn" : "danger";
+  return `<span class="badge ${cls}">${estado}</span>`;
+}
+
+function emptyRow(cols) {
+  return `<tr><td colspan="${cols}" class="muted">Sin datos todavia.</td></tr>`;
+}
+
+function options(items) {
+  return items.map(([value, label]) => `<option value="${escapeAttr(value)}">${escapeHtml(label)}</option>`).join("");
+}
+
+function fmt(value) {
+  return Number(value || 0).toLocaleString("es-ES", { maximumFractionDigits: 2 });
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[ch]);
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value).replace(/`/g, "&#096;");
+}
+
+
+// ---- src/js/app.js ----
+
+
+
+
+
+
+
+
+let state = crearEstadoInicial();
+let activeTab = "inicio";
+let selectedMonth = 0;
+let calendario = {};
+let resumenes = [];
+let runtimeNotice = "";
+
+const root = document.getElementById("app");
+
+init();
+
+async function init() {
+  recalcAndRender();
+  try {
+    const savedState = await loadState();
+    if (savedState) {
+      state = savedState;
+      runtimeNotice = "";
+    }
+  } catch (error) {
+    runtimeNotice = `No se pudo abrir IndexedDB. La aplicacion funciona en memoria durante esta sesion: ${error.message}`;
+  }
+  recalcAndRender();
+}
+
+function recalcAndRender() {
+  calendario = generarCalendarioAnual(state);
+  resumenes = calcularResumenGlobal(state, calendario);
+  renderApp(root, state, calendario, resumenes, activeTab, selectedMonth, runtimeNotice);
+  bindEvents();
+}
+
+async function persist() {
+  try {
+    await saveState(state);
+    runtimeNotice = "";
+  } catch (error) {
+    runtimeNotice = `No se pudo guardar en IndexedDB. Los cambios siguen visibles en memoria: ${error.message}`;
+    notify(runtimeNotice, true);
+  } finally {
+    recalcAndRender();
+  }
+}
+
+function bindEvents() {
+  root.querySelectorAll("[data-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeTab = button.dataset.tab;
+      recalcAndRender();
+    });
+  });
+
+  root.querySelector("#configForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget));
+    state.config = { ...state.config, ...data, anioActivo: Number(data.anioActivo), jornadaPersonalizada: Number(data.jornadaPersonalizada) };
+    await persist();
+  });
+
+  root.querySelector("#profesionalForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = Object.fromEntries(new FormData(form));
+    const errores = validarProfesional(data);
+    if (errores.length) return notify(errores.join(" "), true);
+    const existing = state.profesionales.find((item) => item.id === data.id);
+    const payload = {
+      ...(existing || crearProfesionalBase(state)),
+      ...data,
+      porcentajeJornada: Number(data.porcentajeJornada),
+      posicionInicial: Number(data.posicionInicial || 0),
+      activo: true,
+    };
+    if (existing) Object.assign(existing, payload);
+    else state.profesionales.push(payload);
+    await persist();
+  });
+
+  root.querySelector("#turnoForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget));
+    const existing = state.turnos.find((item) => item.id === data.id);
+    const payload = {
+      ...(existing || turno(data.codigo, data.nombre, data.inicio, data.fin, data.horasComputables, data.grupoCobertura, data.color, data.cruzaMedianoche === "true")),
+      ...data,
+      codigo: data.codigo.toUpperCase(),
+      horasComputables: Number(data.horasComputables),
+      cruzaMedianoche: data.cruzaMedianoche === "true",
+    };
+    const errores = validarTurno(payload, state.turnos);
+    if (errores.length) return notify(errores.join(" "), true);
+    if (existing) Object.assign(existing, payload);
+    else state.turnos.push(payload);
+    await persist();
+  });
+
+  root.querySelector("#cicloForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget));
+    try {
+      const codigos = parsearSecuencia(data.secuencia).map((codigo) => codigo.toUpperCase());
+      const existing = state.ciclos.find((item) => item.id === data.id);
+      if (existing) Object.assign(existing, { nombre: data.nombre, codigos });
+      else state.ciclos.push(crearCiclo(data.nombre, codigos, state.turnos));
+      await persist();
+    } catch (error) {
+      notify(error.message, true);
+    }
+  });
+
+  root.querySelector("#monthSelector")?.addEventListener("change", (event) => {
+    selectedMonth = Number(event.target.value);
+    recalcAndRender();
+  });
+
+  root.querySelector("#importJson")?.addEventListener("change", importarJson);
+
+  root.querySelectorAll("[data-action]").forEach((element) => {
+    element.addEventListener("click", handleAction);
+  });
+}
+
+async function handleAction(event) {
+  const action = event.currentTarget.dataset.action;
+  const id = event.currentTarget.dataset.id;
+  if (action === "clear-prof-form") return fillForm("profesionalForm", crearProfesionalBase(state));
+  if (action === "clear-turno-form") return fillForm("turnoForm", {});
+  if (action === "clear-ciclo-form") return fillForm("cicloForm", {});
+  if (action === "append-turno") {
+    const input = root.querySelector("#cicloForm [name='secuencia']");
+    input.value = `${input.value}${input.value.trim() ? ", " : ""}${event.currentTarget.dataset.code}`;
+  }
+  if (action === "edit-prof") return fillForm("profesionalForm", state.profesionales.find((item) => item.id === id));
+  if (action === "edit-turno") return fillForm("turnoForm", state.turnos.find((item) => item.id === id));
+  if (action === "edit-ciclo") {
+    const ciclo = state.ciclos.find((item) => item.id === id);
+    return fillForm("cicloForm", { ...ciclo, secuencia: ciclo.codigos.join(", ") });
+  }
+  if (action === "delete-prof" && confirm("¿Eliminar profesional?")) {
+    state.profesionales = state.profesionales.filter((item) => item.id !== id);
+    await persist();
+  }
+  if (action === "delete-turno" && confirm("¿Eliminar o desactivar turno? Si esta en uso se desactivara.")) {
+    const enUso = state.ciclos.some((ciclo) => ciclo.codigos.includes(state.turnos.find((t) => t.id === id)?.codigo));
+    if (enUso) state.turnos.find((item) => item.id === id).activo = false;
+    else state.turnos = state.turnos.filter((item) => item.id !== id);
+    await persist();
+  }
+  if (action === "delete-ciclo" && confirm("¿Eliminar ciclo?")) {
+    state.ciclos = state.ciclos.filter((item) => item.id !== id);
+    state.profesionales.forEach((p) => { if (p.cicloId === id) p.cicloId = ""; });
+    await persist();
+  }
+  if (action === "duplicate-ciclo") {
+    const ciclo = state.ciclos.find((item) => item.id === id);
+    state.ciclos.push({ ...structuredClone(ciclo), id: crypto.randomUUID(), nombre: `${ciclo.nombre} copia` });
+    await persist();
+  }
+  if (action === "export-json") {
+    descargarJson(`gestor-turnos-${state.config.unidad}-${state.config.anioActivo}.json`, crearBackup(state));
+  }
+  if (action === "reset-data") {
+    if (confirm("Primera confirmacion: se sustituiran los datos locales.") && confirm("Segunda confirmacion: ¿restablecer datos iniciales?")) {
+      await clearState();
+      state = crearEstadoInicial();
+      await persist();
+    }
+  }
+}
+
+function validarProfesional(data) {
+  const errores = [];
+  if (!data.nombre) errores.push("El nombre es obligatorio.");
+  const porcentaje = Number(data.porcentajeJornada);
+  if (porcentaje < 1 || porcentaje > 100) errores.push("El porcentaje debe estar entre 1 y 100.");
+  if (data.fechaInicio && data.fechaFin && data.fechaFin < data.fechaInicio) errores.push("La fecha final debe ser igual o posterior a la inicial.");
+  return errores;
+}
+
+function fillForm(formId, data = {}) {
+  const form = root.querySelector(`#${formId}`);
+  if (!form) return;
+  form.reset();
+  for (const [key, value] of Object.entries(data)) {
+    const input = form.elements[key];
+    if (input) input.value = value ?? "";
+  }
+}
+
+async function importarJson(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  try {
+    const payload = JSON.parse(await file.text());
+    const errores = validarBackup(payload);
+    if (errores.length) return notify(errores.join(" "), true);
+    const resumen = `${payload.data.profesionales.length} profesionales, ${payload.data.turnos.length} turnos, ${payload.data.ciclos.length} ciclos.`;
+    if (!confirm(`Importar copia: ${resumen}\nSe descargara antes una copia del estado actual.`)) return;
+    descargarJson(`backup-previo-importacion-${Date.now()}.json`, crearBackup(state));
+    state = payload.data;
+    await persist();
+  } catch (error) {
+    notify(`No se pudo importar: ${error.message}`, true);
+  } finally {
+    event.target.value = "";
+  }
+}
+
+function notify(message, isError = false) {
+  const prefix = isError ? "Error" : "Aviso";
+  alert(`${prefix}: ${message}`);
+}
+
+    </script>
+  </body>
+</html>
