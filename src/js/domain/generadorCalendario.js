@@ -1,4 +1,4 @@
-import { daysBetween, isWithinRange, monthDates } from "../utils/dateUtils.js";
+import { diferenciaDiasUtc, isWithinRange, monthDates, normalizarFechaIso } from "../utils/dateUtils.js";
 import { buscarTurnoPorCodigo } from "./turnos.js";
 import { moduloPositivo, turnoParaFecha } from "./ciclos.js";
 
@@ -21,7 +21,8 @@ export function generarDia(profesional, fecha, state) {
     return { fecha, codigo: "", horas: 0, esNoche: false, fueraContrato: true };
   }
   const ciclo = state.ciclos.find((item) => item.id === profesional.cicloId && item.activo && !item.archivado);
-  const codigo = turnoParaFecha(ciclo, fecha, profesional.fechaInicioCiclo, profesional.posicionInicial, daysBetween);
+  const fechaInicioCiclo = normalizarFechaIso(profesional.fechaInicioCiclo);
+  const codigo = turnoParaFecha(ciclo, fecha, fechaInicioCiclo, profesional.posicionInicial, diferenciaDiasUtc);
   if (!codigo) return { fecha, codigo: "", horas: 0, esNoche: false, sinCiclo: true };
   const turno = buscarTurnoPorCodigo(state.turnos, codigo);
   if (!turno) return { fecha, codigo, horas: 0, esNoche: false, error: "Turno no encontrado" };
@@ -40,7 +41,8 @@ export function diagnosticarTurnoProfesional(state, profesionalId, fechaConsulta
   if (!profesional) return null;
   const ciclo = state.ciclos.find((item) => item.id === profesional.cicloId && item.activo && !item.archivado);
   const longitudCiclo = ciclo?.codigos?.length || 0;
-  const diasTranscurridos = ciclo && profesional.fechaInicioCiclo ? daysBetween(profesional.fechaInicioCiclo, fechaConsultada) : null;
+  const fechaInicioCicloNormalizada = normalizarFechaIso(profesional.fechaInicioCiclo);
+  const diasTranscurridos = ciclo && fechaInicioCicloNormalizada ? diferenciaDiasUtc(fechaConsultada, fechaInicioCicloNormalizada) : null;
   const indiceCalculado = longitudCiclo && diasTranscurridos !== null ? moduloPositivo(diasTranscurridos + Number(profesional.posicionInicial || 0), longitudCiclo) : null;
   return {
     profesionalId: profesional.id,
@@ -48,6 +50,7 @@ export function diagnosticarTurnoProfesional(state, profesionalId, fechaConsulta
     ordenVisual: profesional.ordenVisual,
     cicloId: profesional.cicloId,
     fechaInicioCiclo: profesional.fechaInicioCiclo,
+    fechaInicioCicloNormalizada,
     posicionInicial: Number(profesional.posicionInicial || 0),
     fechaConsultada,
     diasTranscurridos,

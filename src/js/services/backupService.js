@@ -1,5 +1,6 @@
 import { PERFIL_NORMATIVO_SESCAM_2019 } from "../domain/normativa.js";
 import { migrarEstado } from "../domain/migracion.js";
+import { normalizarFechaIso } from "../utils/dateUtils.js";
 
 export const BACKUP_APPLICATION_NAME = "Gestor Local de Turnos de Enfermería";
 export const BACKUP_LEGACY_APP_ID = "gestor-turnos-enfermeria";
@@ -204,7 +205,7 @@ function validarDuplicados(items, nombre, errores) {
 
 function validarFecha(value, message, errores) {
   if (!value) return;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value)) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) errores.push(message);
+  if (!normalizarFechaIso(value)) errores.push(message);
 }
 
 function validarNormativa(perfil, errores) {

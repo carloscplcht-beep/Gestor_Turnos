@@ -2060,10 +2060,23 @@ const PERFIL_NORMATIVO_SESCAM_2019 = {
 // ---- src/js/utils/dateUtils.js ----
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+function parseIsoDateUtc(value) {
+  const iso = normalizarFechaIso(value);
+  if (!iso) return null;
+  const [year, month, day] = iso.split("-").map(Number);
+  return Date.UTC(year, month - 1, day);
+}
+
+function diferenciaDiasUtc(fechaA, fechaB) {
+  const timeA = parseIsoDateUtc(fechaA);
+  const timeB = parseIsoDateUtc(fechaB);
+  if (timeA === null || timeB === null) return NaN;
+  return Math.round((timeA - timeB) / DAY_MS);
+}
+
 function parseDate(value) {
-  if (!value) return null;
-  const [year, month, day] = String(value).split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day));
+  const time = parseIsoDateUtc(value);
+  return time === null ? null : new Date(time);
 }
 
 function formatDate(date) {
@@ -2071,9 +2084,7 @@ function formatDate(date) {
 }
 
 function daysBetween(startDate, endDate) {
-  const start = parseDate(startDate);
-  const end = parseDate(endDate);
-  return Math.round((end.getTime() - start.getTime()) / DAY_MS);
+  return diferenciaDiasUtc(endDate, startDate);
 }
 
 function daysInMonth(year, monthIndex) {
@@ -2093,6 +2104,28 @@ function isWithinRange(dateString, startDate, endDate) {
   if (startDate && daysBetween(startDate, dateString) < 0) return false;
   if (endDate && daysBetween(dateString, endDate) < 0) return false;
   return true;
+}
+
+function esFechaIsoValida(value) {
+  return normalizarFechaIso(value) === value;
+}
+
+function normalizarFechaIso(value) {
+  if (!value) return "";
+  const text = String(value).trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  if (iso) return fechaIsoSiExiste(Number(iso[1]), Number(iso[2]), Number(iso[3]));
+  const legacyEs = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(text);
+  if (legacyEs) return fechaIsoSiExiste(Number(legacyEs[3]), Number(legacyEs[2]), Number(legacyEs[1]));
+  return "";
+}
+
+function fechaIsoSiExiste(year, month, day) {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return "";
+  const time = Date.UTC(year, month - 1, day);
+  const date = new Date(time);
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return "";
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 
@@ -2179,7 +2212,7 @@ function crearCiclo(nombre, codigos, turnos) {
 
 function turnoParaFecha(ciclo, fechaConsultada, fechaInicioCiclo, posicionInicial, daysBetweenFn) {
   if (!ciclo || !ciclo.codigos?.length || !fechaInicioCiclo) return null;
-  const diasTranscurridos = daysBetweenFn(fechaInicioCiclo, fechaConsultada);
+  const diasTranscurridos = daysBetweenFn(fechaConsultada, fechaInicioCiclo);
   const indice = moduloPositivo(diasTranscurridos + Number(posicionInicial || 0), ciclo.codigos.length);
   return ciclo.codigos[indice];
 }
@@ -2512,7 +2545,8 @@ function generarDia(profesional, fecha, state) {
     return { fecha, codigo: "", horas: 0, esNoche: false, fueraContrato: true };
   }
   const ciclo = state.ciclos.find((item) => item.id === profesional.cicloId && item.activo && !item.archivado);
-  const codigo = turnoParaFecha(ciclo, fecha, profesional.fechaInicioCiclo, profesional.posicionInicial, daysBetween);
+  const fechaInicioCiclo = normalizarFechaIso(profesional.fechaInicioCiclo);
+  const codigo = turnoParaFecha(ciclo, fecha, fechaInicioCiclo, profesional.posicionInicial, diferenciaDiasUtc);
   if (!codigo) return { fecha, codigo: "", horas: 0, esNoche: false, sinCiclo: true };
   const turno = buscarTurnoPorCodigo(state.turnos, codigo);
   if (!turno) return { fecha, codigo, horas: 0, esNoche: false, error: "Turno no encontrado" };
@@ -2531,7 +2565,8 @@ function diagnosticarTurnoProfesional(state, profesionalId, fechaConsultada) {
   if (!profesional) return null;
   const ciclo = state.ciclos.find((item) => item.id === profesional.cicloId && item.activo && !item.archivado);
   const longitudCiclo = ciclo?.codigos?.length || 0;
-  const diasTranscurridos = ciclo && profesional.fechaInicioCiclo ? daysBetween(profesional.fechaInicioCiclo, fechaConsultada) : null;
+  const fechaInicioCicloNormalizada = normalizarFechaIso(profesional.fechaInicioCiclo);
+  const diasTranscurridos = ciclo && fechaInicioCicloNormalizada ? diferenciaDiasUtc(fechaConsultada, fechaInicioCicloNormalizada) : null;
   const indiceCalculado = longitudCiclo && diasTranscurridos !== null ? moduloPositivo(diasTranscurridos + Number(profesional.posicionInicial || 0), longitudCiclo) : null;
   return {
     profesionalId: profesional.id,
@@ -2539,6 +2574,7 @@ function diagnosticarTurnoProfesional(state, profesionalId, fechaConsultada) {
     ordenVisual: profesional.ordenVisual,
     cicloId: profesional.cicloId,
     fechaInicioCiclo: profesional.fechaInicioCiclo,
+    fechaInicioCicloNormalizada,
     posicionInicial: Number(profesional.posicionInicial || 0),
     fechaConsultada,
     diasTranscurridos,
@@ -2679,6 +2715,7 @@ function crearProfesionalBase(state) {
 // ---- src/js/domain/migracion.js ----
 
 
+
 function migrarEstado(state) {
   if (!state || typeof state !== "object") return state;
   state.schemaVersion = Math.max(Number(state.schemaVersion || 1), 2);
@@ -2695,6 +2732,9 @@ function migrarEstado(state) {
 
 function migrarProfesionales(profesionales) {
   profesionales.forEach((profesional, index) => {
+    profesional.fechaInicio = normalizarFechaIso(profesional.fechaInicio) || profesional.fechaInicio;
+    profesional.fechaFin = normalizarFechaIso(profesional.fechaFin) || profesional.fechaFin;
+    profesional.fechaInicioCiclo = normalizarFechaIso(profesional.fechaInicioCiclo) || profesional.fechaInicioCiclo;
     if (!Number.isFinite(Number(profesional.ordenVisual))) profesional.ordenVisual = index + 1;
     if (typeof profesional.activo !== "boolean") profesional.activo = true;
   });
@@ -2712,6 +2752,7 @@ function migrarTurnos(turnos) {
 
 function migrarIncidencias(incidencias) {
   incidencias.forEach((incidencia) => {
+    incidencia.fecha = normalizarFechaIso(incidencia.fecha) || incidencia.fecha;
     incidencia.escenarioId ||= ESCENARIO_OFICIAL;
     incidencia.horasTurnoBase = Number(incidencia.horasTurnoBase || 0);
     incidencia.creadoEn ||= incidencia.actualizadoEn || new Date().toISOString();
@@ -2875,6 +2916,7 @@ async function readStore(db, storeName) {
 
 
 // ---- src/js/services/backupService.js ----
+
 
 
 const BACKUP_APPLICATION_NAME = "Gestor Local de Turnos de Enfermería";
@@ -3080,7 +3122,7 @@ function validarDuplicados(items, nombre, errores) {
 
 function validarFecha(value, message, errores) {
   if (!value) return;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value)) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) errores.push(message);
+  if (!normalizarFechaIso(value)) errores.push(message);
 }
 
 function validarNormativa(perfil, errores) {
@@ -3522,6 +3564,7 @@ function escapeAttr(value) {
 
 
 
+
 let state = crearEstadoInicial();
 let activeTab = "inicio";
 let selectedMonth = 0;
@@ -3590,6 +3633,7 @@ function bindEvents() {
     const form = event.currentTarget;
     const data = Object.fromEntries(new FormData(form));
     if (!data.id) delete data.id;
+    normalizarFechasProfesionalFormulario(data);
     const errores = validarProfesional(data);
     if (errores.length) return notify(errores.join(" "), true);
     const existing = state.profesionales.find((item) => item.id === data.id);
@@ -3783,8 +3827,17 @@ function validarProfesional(data) {
   if (porcentaje < 1 || porcentaje > 100) errores.push("El porcentaje debe estar entre 1 y 100.");
   const ordenVisual = Number(data.ordenVisual || 1);
   if (!Number.isInteger(ordenVisual) || ordenVisual < 1) errores.push("El orden visual debe ser un entero positivo.");
+  if (!normalizarFechaIso(data.fechaInicio)) errores.push("La fecha de inicio debe estar en formato ISO YYYY-MM-DD.");
+  if (!normalizarFechaIso(data.fechaFin)) errores.push("La fecha de fin debe estar en formato ISO YYYY-MM-DD.");
+  if (!normalizarFechaIso(data.fechaInicioCiclo)) errores.push("La fecha de inicio de ciclo debe estar en formato ISO YYYY-MM-DD.");
   if (data.fechaInicio && data.fechaFin && data.fechaFin < data.fechaInicio) errores.push("La fecha final debe ser igual o posterior a la inicial.");
   return errores;
+}
+
+function normalizarFechasProfesionalFormulario(data) {
+  data.fechaInicio = normalizarFechaIso(data.fechaInicio);
+  data.fechaFin = normalizarFechaIso(data.fechaFin);
+  data.fechaInicioCiclo = normalizarFechaIso(data.fechaInicioCiclo);
 }
 
 function fillForm(formId, data = {}) {

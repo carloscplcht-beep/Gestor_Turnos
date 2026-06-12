@@ -1,5 +1,6 @@
 import { normalizarOrdenProfesionales } from "./orden.js";
 import { crearConfiguracionAusenciasBase, ESCENARIO_OFICIAL } from "./incidencias.js";
+import { normalizarFechaIso } from "../utils/dateUtils.js";
 
 export function migrarEstado(state) {
   if (!state || typeof state !== "object") return state;
@@ -17,6 +18,9 @@ export function migrarEstado(state) {
 
 export function migrarProfesionales(profesionales) {
   profesionales.forEach((profesional, index) => {
+    profesional.fechaInicio = normalizarFechaIso(profesional.fechaInicio) || profesional.fechaInicio;
+    profesional.fechaFin = normalizarFechaIso(profesional.fechaFin) || profesional.fechaFin;
+    profesional.fechaInicioCiclo = normalizarFechaIso(profesional.fechaInicioCiclo) || profesional.fechaInicioCiclo;
     if (!Number.isFinite(Number(profesional.ordenVisual))) profesional.ordenVisual = index + 1;
     if (typeof profesional.activo !== "boolean") profesional.activo = true;
   });
@@ -34,6 +38,7 @@ export function migrarTurnos(turnos) {
 
 export function migrarIncidencias(incidencias) {
   incidencias.forEach((incidencia) => {
+    incidencia.fecha = normalizarFechaIso(incidencia.fecha) || incidencia.fecha;
     incidencia.escenarioId ||= ESCENARIO_OFICIAL;
     incidencia.horasTurnoBase = Number(incidencia.horasTurnoBase || 0);
     incidencia.creadoEn ||= incidencia.actualizadoEn || new Date().toISOString();

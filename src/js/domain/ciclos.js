@@ -34,7 +34,7 @@ export function crearCiclo(nombre, codigos, turnos) {
 
 export function turnoParaFecha(ciclo, fechaConsultada, fechaInicioCiclo, posicionInicial, daysBetweenFn) {
   if (!ciclo || !ciclo.codigos?.length || !fechaInicioCiclo) return null;
-  const diasTranscurridos = daysBetweenFn(fechaInicioCiclo, fechaConsultada);
+  const diasTranscurridos = daysBetweenFn(fechaConsultada, fechaInicioCiclo);
   const indice = moduloPositivo(diasTranscurridos + Number(posicionInicial || 0), ciclo.codigos.length);
   return ciclo.codigos[indice];
 }

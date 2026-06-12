@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { daysBetween, daysInMonth } from "../src/js/utils/dateUtils.js";
+import { daysBetween, daysInMonth, diferenciaDiasUtc, normalizarFechaIso } from "../src/js/utils/dateUtils.js";
 import { moduloPositivo, turnoParaFecha, crearCiclo } from "../src/js/domain/ciclos.js";
 import { crearTurnosIniciales, turno } from "../src/js/domain/turnos.js";
 import { diagnosticarTurnoProfesional, generarCalendarioAnual } from "../src/js/domain/generadorCalendario.js";
@@ -18,17 +18,17 @@ const turnos = crearTurnosIniciales();
 
 test("ciclos: ciclo de una posicion", () => {
   const ciclo = { codigos: ["M"] };
-  assert.equal(turnoParaFecha(ciclo, "2026-01-10", "2026-01-01", 0, daysBetween), "M");
+  assert.equal(turnoParaFecha(ciclo, "2026-01-10", "2026-01-01", 0, diferenciaDiasUtc), "M");
 });
 
 test("ciclos: 7 y 9 posiciones, repeticion y fecha anterior", () => {
   const ciclo7 = { codigos: ["M", "T", "N", "L", "M", "T", "L"] };
-  assert.equal(turnoParaFecha(ciclo7, "2026-01-08", "2026-01-01", 0, daysBetween), "M");
-  assert.equal(turnoParaFecha(ciclo7, "2025-12-31", "2026-01-01", 0, daysBetween), "L");
+  assert.equal(turnoParaFecha(ciclo7, "2026-01-08", "2026-01-01", 0, diferenciaDiasUtc), "M");
+  assert.equal(turnoParaFecha(ciclo7, "2025-12-31", "2026-01-01", 0, diferenciaDiasUtc), "L");
   const ciclo9 = { codigos: ["M", "M", "T", "T", "N", "N", "L", "L", "L"] };
-  assert.equal(turnoParaFecha(ciclo9, "2026-01-10", "2026-01-01", 0, daysBetween), "M");
-  assert.equal(turnoParaFecha(ciclo9, "2026-01-01", "2026-01-01", 2, daysBetween), "T");
-  assert.equal(turnoParaFecha(ciclo9, "2026-01-01", "2026-01-01", 11, daysBetween), "T");
+  assert.equal(turnoParaFecha(ciclo9, "2026-01-10", "2026-01-01", 0, diferenciaDiasUtc), "M");
+  assert.equal(turnoParaFecha(ciclo9, "2026-01-01", "2026-01-01", 2, diferenciaDiasUtc), "T");
+  assert.equal(turnoParaFecha(ciclo9, "2026-01-01", "2026-01-01", 11, diferenciaDiasUtc), "T");
 });
 
 test("fechas: meses, bisiestos y horario de verano", () => {
@@ -92,6 +92,36 @@ test("cuadrante: misma fecha de ciclo y distinta posicion inicial desplaza indic
   const diagnosticos = state.profesionales.map((p) => diagnosticarTurnoProfesional(state, p.id, "2026-01-01"));
   assert.deepEqual(diagnosticos.map((d) => d.indiceCalculado), [0, 1, 3]);
   assert.deepEqual(diagnosticos.map((d) => d.turnoResultante), ["L", "D12", "N12"]);
+});
+
+test("cuadrante: fechas de inicio de ciclo en diciembre anterior escalonan enero", () => {
+  const ciclo = crearCiclo("Rueda diciembre", ["D12", "D12", "N12", "L", "L", "L", "L", "L"], turnos);
+  const state = baseState({ ciclos: [ciclo] });
+  const fechasInicio = ["2025-12-01", "2025-12-02", "2025-12-03", "2025-12-04", "2025-12-05", "2025-12-06", "2025-12-07", "2025-12-08"];
+  state.profesionales = fechasInicio.map((fechaInicioCiclo, index) => profesional(
+    `P${index + 1}`,
+    ciclo.id,
+    "2026-01-01",
+    "2026-12-31",
+    0,
+    100,
+    "rotatorio",
+    { id: `p${index + 1}`, fechaInicioCiclo, ordenVisual: index + 1 },
+  ));
+  const diagnosticos = state.profesionales.map((p) => diagnosticarTurnoProfesional(state, p.id, "2026-01-01"));
+  assert.deepEqual(diagnosticos.map((d) => d.fechaInicioCicloNormalizada), fechasInicio);
+  assert.deepEqual(diagnosticos.map((d) => d.diasTranscurridos), [31, 30, 29, 28, 27, 26, 25, 24]);
+  assert.deepEqual(diagnosticos.map((d) => d.indiceCalculado), [7, 6, 5, 4, 3, 2, 1, 0]);
+  assert.deepEqual(diagnosticos.map((d) => d.turnoResultante), ["L", "L", "L", "L", "L", "N12", "D12", "D12"]);
+  const cal = generarCalendarioAnual(state);
+  const secuencias = state.profesionales.map((p) => ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04"].map((fecha) => cal[p.id][fecha].codigo).join(","));
+  assert.ok(new Set(secuencias).size > 1);
+});
+
+test("fechas: normaliza legado dd/mm/yyyy a ISO sin Date.parse ambiguo", () => {
+  assert.equal(normalizarFechaIso("2025-12-01"), "2025-12-01");
+  assert.equal(normalizarFechaIso("01/12/2025"), "2025-12-01");
+  assert.equal(diferenciaDiasUtc("2026-01-01", "2025-12-01"), 31);
 });
 
 test("orden visual: ordena, empata por nombre/id y permite subir/bajar", () => {

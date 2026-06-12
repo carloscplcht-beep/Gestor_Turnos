@@ -9,6 +9,7 @@ import { aplicarIncidencia, calcularDerechosAusencias, calcularUsoActualIncidenc
 import { clearState, exportDatabaseSnapshot, loadState, saveState } from "./storage/indexedDb.js";
 import { crearBackup, crearNombreCopia, descargarJson, formatearResumenImportacion, prepararImportacionBackup, sustituirEstadoConRollback } from "./services/backupService.js";
 import { renderApp } from "./ui/render.js";
+import { normalizarFechaIso } from "./utils/dateUtils.js";
 
 let state = crearEstadoInicial();
 let activeTab = "inicio";
@@ -78,6 +79,7 @@ function bindEvents() {
     const form = event.currentTarget;
     const data = Object.fromEntries(new FormData(form));
     if (!data.id) delete data.id;
+    normalizarFechasProfesionalFormulario(data);
     const errores = validarProfesional(data);
     if (errores.length) return notify(errores.join(" "), true);
     const existing = state.profesionales.find((item) => item.id === data.id);
@@ -271,8 +273,17 @@ function validarProfesional(data) {
   if (porcentaje < 1 || porcentaje > 100) errores.push("El porcentaje debe estar entre 1 y 100.");
   const ordenVisual = Number(data.ordenVisual || 1);
   if (!Number.isInteger(ordenVisual) || ordenVisual < 1) errores.push("El orden visual debe ser un entero positivo.");
+  if (!normalizarFechaIso(data.fechaInicio)) errores.push("La fecha de inicio debe estar en formato ISO YYYY-MM-DD.");
+  if (!normalizarFechaIso(data.fechaFin)) errores.push("La fecha de fin debe estar en formato ISO YYYY-MM-DD.");
+  if (!normalizarFechaIso(data.fechaInicioCiclo)) errores.push("La fecha de inicio de ciclo debe estar en formato ISO YYYY-MM-DD.");
   if (data.fechaInicio && data.fechaFin && data.fechaFin < data.fechaInicio) errores.push("La fecha final debe ser igual o posterior a la inicial.");
   return errores;
+}
+
+function normalizarFechasProfesionalFormulario(data) {
+  data.fechaInicio = normalizarFechaIso(data.fechaInicio);
+  data.fechaFin = normalizarFechaIso(data.fechaFin);
+  data.fechaInicioCiclo = normalizarFechaIso(data.fechaInicioCiclo);
 }
 
 function fillForm(formId, data = {}) {

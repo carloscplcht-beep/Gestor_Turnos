@@ -23,6 +23,27 @@ La salida debe incluir `fechaInicioCiclo`, `posicionInicial`, `diasTranscurridos
 
 Repetir con misma fecha de inicio de ciclo y posiciones iniciales diferentes. En ese caso deben cambiar los indices por posicion, sin modificar automaticamente la fecha de inicio.
 
+Caso obligatorio de continuidad entre anos:
+
+Secuencia: `D12, D12, N12, L, L, L, L, L`
+
+Fecha consultada: `2026-01-01`
+
+| Profesional | Inicio ciclo | Dias transcurridos | Indice | Turno esperado |
+| --- | --- | ---: | ---: | --- |
+| P1 | 2025-12-01 | 31 | 7 | L |
+| P2 | 2025-12-02 | 30 | 6 | L |
+| P3 | 2025-12-03 | 29 | 5 | L |
+| P4 | 2025-12-04 | 28 | 4 | L |
+| P5 | 2025-12-05 | 27 | 3 | L |
+| P6 | 2025-12-06 | 26 | 2 | N12 |
+| P7 | 2025-12-07 | 25 | 1 | D12 |
+| P8 | 2025-12-08 | 24 | 0 | D12 |
+
+Aunque algunos profesionales coincidan el 1 de enero, sus filas no pueden repetir exactamente la misma secuencia mensual.
+
+Las fechas internas deben conservarse en ISO `YYYY-MM-DD`. Si existieran valores antiguos en formato `dd/mm/aaaa`, la migracion los convierte de forma explicita a ISO antes de calcular.
+
 ### 2. Orden visual persistente
 
 Crear profesionales con orden visual no alfabetico, por ejemplo:
