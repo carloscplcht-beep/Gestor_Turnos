@@ -7,7 +7,8 @@
     "generate:normativa": "node tools/generar-normativa-js.mjs",
     "validate:tabla": "node tools/validar-tabla-ponderacion.mjs",
     "test": "node tests/domain.test.mjs",
+    "test:browser": "node tools/browser-flow-check.mjs",
     "build": "node tools/build-dist.mjs",
-    "verify": "npm run generate:normativa && npm run validate:tabla && npm test && npm run build"
+    "verify": "npm run generate:normativa && npm run validate:tabla && npm test && npm run build && npm run test:browser"
   }
 }
