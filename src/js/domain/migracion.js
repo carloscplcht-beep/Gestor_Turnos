@@ -1,4 +1,5 @@
 import { normalizarOrdenProfesionales } from "./orden.js";
+import { crearConfiguracionAusenciasBase, ESCENARIO_OFICIAL } from "./incidencias.js";
 
 export function migrarEstado(state) {
   if (!state || typeof state !== "object") return state;
@@ -6,8 +7,11 @@ export function migrarEstado(state) {
   state.config ??= {};
   if (typeof state.config.mostrarLibresResumen !== "boolean") state.config.mostrarLibresResumen = true;
   if (typeof state.config.ultimaExportacionJson !== "string") state.config.ultimaExportacionJson = "";
+  state.config.ausencias = { ...crearConfiguracionAusenciasBase(), ...(state.config.ausencias || {}) };
+  if (!Array.isArray(state.incidenciasDiarias)) state.incidenciasDiarias = [];
   migrarProfesionales(state.profesionales || []);
   migrarTurnos(state.turnos || []);
+  migrarIncidencias(state.incidenciasDiarias);
   return state;
 }
 
@@ -26,6 +30,16 @@ export function migrarTurnos(turnos) {
     if (String(turno.codigo || "").toUpperCase() === "L") turno.cuentaComoPresencia = false;
   });
   return turnos;
+}
+
+export function migrarIncidencias(incidencias) {
+  incidencias.forEach((incidencia) => {
+    incidencia.escenarioId ||= ESCENARIO_OFICIAL;
+    incidencia.horasTurnoBase = Number(incidencia.horasTurnoBase || 0);
+    incidencia.creadoEn ||= incidencia.actualizadoEn || new Date().toISOString();
+    incidencia.actualizadoEn ||= incidencia.creadoEn;
+  });
+  return incidencias;
 }
 
 export function normalizarEstado(state) {

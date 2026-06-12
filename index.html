@@ -369,6 +369,24 @@ tr:last-child td { border-bottom: 0; }
 .today { outline: 2px solid var(--teal); outline-offset: -2px; }
 .shift-cell { text-align: center; font-weight: 820; color: #123047; }
 .shift-cell:hover { filter: saturate(1.08); }
+.shift-cell[data-action="edit-incidencia"] { cursor: pointer; }
+.incidence-cell {
+  color: #351f4f;
+  box-shadow: inset 0 0 0 2px rgba(53, 31, 79, .15);
+}
+.incidence-legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  color: var(--muted);
+  font-weight: 760;
+}
+.incidence-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 .summary-toggle { margin-top: 14px; max-width: max-content; }
 .calendar .summary-title td {
   position: static;
@@ -2308,6 +2326,169 @@ function numeroOrden(value) {
 }
 
 
+// ---- src/js/domain/incidencias.js ----
+const ESCENARIO_OFICIAL = "escenario-oficial";
+
+const TIPOS_INCIDENCIA = {
+  V: {
+    codigo: "V",
+    nombre: "Vacaciones",
+    campoHoras: "horasVacaciones",
+    campoBolsa: "bolsaVacacionesHoras",
+    color: "#ffe6b8",
+  },
+  LD: {
+    codigo: "LD",
+    nombre: "Libre disposicion",
+    campoHoras: "horasLibreDisposicion",
+    campoBolsa: "bolsaLibreDisposicionHoras",
+    color: "#e8ddf7",
+  },
+};
+
+const BOLSAS_AUSENCIAS_BASE = {
+  vacacionesHoras: 154,
+  libreDisposicionHoras: 42,
+};
+
+function crearConfiguracionAusenciasBase() {
+  return {
+    vacacionesHoras: BOLSAS_AUSENCIAS_BASE.vacacionesHoras,
+    libreDisposicionHoras: BOLSAS_AUSENCIAS_BASE.libreDisposicionHoras,
+    proporcionalJornada: true,
+  };
+}
+
+function obtenerIncidencia(state, profesionalId, fecha, escenarioId = ESCENARIO_OFICIAL) {
+  return (state.incidenciasDiarias || []).find((incidencia) => (
+    incidencia.profesionalId === profesionalId
+    && incidencia.fecha === fecha
+    && (incidencia.escenarioId || ESCENARIO_OFICIAL) === escenarioId
+  )) || null;
+}
+
+function aplicarIncidencia(state, profesional, diaBase, tipoIncidencia, escenarioId = ESCENARIO_OFICIAL, now = new Date().toISOString()) {
+  if (!TIPOS_INCIDENCIA[tipoIncidencia]) throw new Error("Tipo de incidencia no valido.");
+  if (!diaBase?.codigo || diaBase.fueraContrato || diaBase.sinCiclo) throw new Error("No se puede aplicar una incidencia en una celda sin turno generado.");
+  if (!profesional?.activo) throw new Error("No se puede aplicar una incidencia a un profesional inactivo.");
+  state.incidenciasDiarias ??= [];
+  const existente = obtenerIncidencia(state, profesional.id, diaBase.fecha, escenarioId);
+  const payload = {
+    id: existente?.id || crypto.randomUUID(),
+    profesionalId: profesional.id,
+    fecha: diaBase.fecha,
+    escenarioId,
+    turnoBaseId: diaBase.turnoId || "",
+    codigoTurnoBase: diaBase.codigo,
+    horasTurnoBase: Number(diaBase.horas || 0),
+    tipoIncidencia,
+    creadoEn: existente?.creadoEn || now,
+    actualizadoEn: now,
+  };
+  if (existente) Object.assign(existente, payload);
+  else state.incidenciasDiarias.push(payload);
+  return payload;
+}
+
+function eliminarIncidencia(state, profesionalId, fecha, escenarioId = ESCENARIO_OFICIAL) {
+  const before = state.incidenciasDiarias?.length || 0;
+  state.incidenciasDiarias = (state.incidenciasDiarias || []).filter((incidencia) => !(
+    incidencia.profesionalId === profesionalId
+    && incidencia.fecha === fecha
+    && (incidencia.escenarioId || ESCENARIO_OFICIAL) === escenarioId
+  ));
+  return before !== state.incidenciasDiarias.length;
+}
+
+function resolverDiaConIncidencia(state, profesional, diaBase, fecha) {
+  const incidencia = obtenerIncidencia(state, profesional.id, fecha);
+  const horasBaseActuales = Number(diaBase?.horas || 0);
+  if (!incidencia || !diaBase?.codigo || diaBase.fueraContrato || diaBase.sinCiclo) {
+    return {
+      ...diaBase,
+      codigoBase: diaBase?.codigo || "",
+      horasBase: horasBaseActuales,
+      horasEfectivas: horasBaseActuales,
+      horasVacaciones: 0,
+      horasLibreDisposicion: 0,
+      incidencia: null,
+      codigoVisible: diaBase?.codigo || "",
+      colorIncidencia: "",
+      cuentaComoPresencia: true,
+    };
+  }
+  const tipo = TIPOS_INCIDENCIA[incidencia.tipoIncidencia];
+  const horasDescontadas = horasBaseActuales;
+  return {
+    ...diaBase,
+    codigoBase: diaBase.codigo,
+    horasBase: horasBaseActuales,
+    horas: 0,
+    horasEfectivas: 0,
+    horasVacaciones: tipo.codigo === "V" ? horasDescontadas : 0,
+    horasLibreDisposicion: tipo.codigo === "LD" ? horasDescontadas : 0,
+    incidencia: {
+      ...incidencia,
+      codigoTurnoBaseActual: diaBase.codigo,
+      horasTurnoBaseActual: horasBaseActuales,
+      horasOriginalesIncidencia: Number(incidencia.horasTurnoBase || 0),
+      horasAlteradas: Number(incidencia.horasTurnoBase || 0) !== horasBaseActuales,
+    },
+    codigoVisible: tipo.codigo,
+    colorIncidencia: tipo.color,
+    cuentaComoPresencia: false,
+    esNoche: false,
+  };
+}
+
+function calcularDerechosAusencias(profesional, config = {}) {
+  const porcentaje = Number(profesional?.porcentajeJornada || 100) / 100;
+  const proporcional = config.ausencias?.proporcionalJornada !== false;
+  const factor = proporcional ? porcentaje : 1;
+  return {
+    vacaciones: roundHours(Number(config.ausencias?.vacacionesHoras ?? BOLSAS_AUSENCIAS_BASE.vacacionesHoras) * factor),
+    libreDisposicion: roundHours(Number(config.ausencias?.libreDisposicionHoras ?? BOLSAS_AUSENCIAS_BASE.libreDisposicionHoras) * factor),
+    regla: proporcional ? "Proporcional al porcentaje de jornada" : "Bolsa completa no prorrateada",
+  };
+}
+
+function calcularSaldosAusencias(profesional, horasVacaciones = 0, horasLibreDisposicion = 0, config = {}) {
+  const derechos = calcularDerechosAusencias(profesional, config);
+  return {
+    vacaciones: {
+      derecho: derechos.vacaciones,
+      utilizadas: roundHours(horasVacaciones),
+      pendientes: roundHours(Math.max(0, derechos.vacaciones - horasVacaciones)),
+      exceso: roundHours(Math.max(0, horasVacaciones - derechos.vacaciones)),
+    },
+    libreDisposicion: {
+      derecho: derechos.libreDisposicion,
+      utilizadas: roundHours(horasLibreDisposicion),
+      pendientes: roundHours(Math.max(0, derechos.libreDisposicion - horasLibreDisposicion)),
+      exceso: roundHours(Math.max(0, horasLibreDisposicion - derechos.libreDisposicion)),
+    },
+    regla: derechos.regla,
+  };
+}
+
+function calcularUsoActualIncidencias(state, calendario, profesionalId, tipoIncidencia) {
+  let total = 0;
+  const profesional = state.profesionales.find((item) => item.id === profesionalId);
+  if (!profesional) return 0;
+  for (const incidencia of state.incidenciasDiarias || []) {
+    if (incidencia.profesionalId !== profesionalId || incidencia.tipoIncidencia !== tipoIncidencia) continue;
+    const diaBase = calendario[profesionalId]?.[incidencia.fecha];
+    const resuelto = resolverDiaConIncidencia(state, profesional, diaBase, incidencia.fecha);
+    total += tipoIncidencia === "V" ? resuelto.horasVacaciones : resuelto.horasLibreDisposicion;
+  }
+  return roundHours(total);
+}
+
+function roundHours(value) {
+  return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+}
+
+
 // ---- src/js/domain/generadorCalendario.js ----
 
 
@@ -2371,22 +2552,30 @@ function diagnosticarTurnoProfesional(state, profesionalId, fechaConsultada) {
 
 
 
+
 function calcularResumenProfesional(profesional, calendario, state) {
   const year = Number(state.config.anioActivo);
   const dias = calendario[profesional.id] || {};
   const horasMes = [];
   let total = 0;
+  let totalBasePrevisto = 0;
+  let horasVacaciones = 0;
+  let horasLibreDisposicion = 0;
   let noches = 0;
   const desglose = { mananas: 0, tardes: 0, noches: 0, turnos12: 0, libres: 0, otros: 0 };
 
   for (let month = 0; month < 12; month += 1) {
     let horas = 0;
     for (const fecha of monthDates(year, month)) {
-      const dia = dias[fecha];
+      const diaBase = dias[fecha];
+      const dia = resolverDiaConIncidencia(state, profesional, diaBase, fecha);
       if (!dia) continue;
-      horas += Number(dia.horas || 0);
-      if (dia.esNoche) noches += 1;
-      if (dia.codigo) contarDesglose(dia, desglose);
+      totalBasePrevisto += Number(dia.horasBase || 0);
+      horasVacaciones += Number(dia.horasVacaciones || 0);
+      horasLibreDisposicion += Number(dia.horasLibreDisposicion || 0);
+      horas += Number(dia.horasEfectivas ?? dia.horas ?? 0);
+      if (diaBase?.esNoche) noches += 1;
+      if (diaBase?.codigo) contarDesglose(diaBase, desglose);
     }
     horasMes.push(roundHours(horas));
     total += horas;
@@ -2400,17 +2589,22 @@ function calcularResumenProfesional(profesional, calendario, state) {
     jornadaManual: profesional.jornadaManual,
   });
   const diferencia = roundHours(total - jornada.objetivo);
+  const saldosAusencias = calcularSaldosAusencias(profesional, horasVacaciones, horasLibreDisposicion, state.config);
 
   return {
     profesionalId: profesional.id,
     horasMes,
     total: roundHours(total),
+    totalBasePrevisto: roundHours(totalBasePrevisto),
+    horasVacaciones: roundHours(horasVacaciones),
+    horasLibreDisposicion: roundHours(horasLibreDisposicion),
     noches,
     jornada,
     diferencia,
     estado: diferencia === 0 ? "ajustado" : diferencia > 0 ? "exceso" : "deficit",
     prorrataPendiente: requiereAdvertenciaProrrata(profesional, year),
     desglose,
+    saldosAusencias,
   };
 }
 
@@ -2431,6 +2625,7 @@ function contarDesglose(dia, desglose) {
 // ---- src/js/domain/estadoInicial.js ----
 
 
+
 function crearEstadoInicial() {
   const turnos = crearTurnosIniciales();
   return {
@@ -2443,6 +2638,7 @@ function crearEstadoInicial() {
       jornadaPersonalizada: 1519,
       mostrarLibresResumen: true,
       ultimaExportacionJson: "",
+      ausencias: crearConfiguracionAusenciasBase(),
     },
     turnos,
     ciclos: [
@@ -2455,6 +2651,7 @@ function crearEstadoInicial() {
       },
     ],
     profesionales: [],
+    incidenciasDiarias: [],
   };
 }
 
@@ -2481,14 +2678,18 @@ function crearProfesionalBase(state) {
 
 // ---- src/js/domain/migracion.js ----
 
+
 function migrarEstado(state) {
   if (!state || typeof state !== "object") return state;
   state.schemaVersion = Math.max(Number(state.schemaVersion || 1), 2);
   state.config ??= {};
   if (typeof state.config.mostrarLibresResumen !== "boolean") state.config.mostrarLibresResumen = true;
   if (typeof state.config.ultimaExportacionJson !== "string") state.config.ultimaExportacionJson = "";
+  state.config.ausencias = { ...crearConfiguracionAusenciasBase(), ...(state.config.ausencias || {}) };
+  if (!Array.isArray(state.incidenciasDiarias)) state.incidenciasDiarias = [];
   migrarProfesionales(state.profesionales || []);
   migrarTurnos(state.turnos || []);
+  migrarIncidencias(state.incidenciasDiarias);
   return state;
 }
 
@@ -2509,6 +2710,16 @@ function migrarTurnos(turnos) {
   return turnos;
 }
 
+function migrarIncidencias(incidencias) {
+  incidencias.forEach((incidencia) => {
+    incidencia.escenarioId ||= ESCENARIO_OFICIAL;
+    incidencia.horasTurnoBase = Number(incidencia.horasTurnoBase || 0);
+    incidencia.creadoEn ||= incidencia.actualizadoEn || new Date().toISOString();
+    incidencia.actualizadoEn ||= incidencia.creadoEn;
+  });
+  return incidencias;
+}
+
 function normalizarEstado(state) {
   migrarEstado(state);
   normalizarOrdenProfesionales(state.profesionales || []);
@@ -2520,9 +2731,10 @@ function normalizarEstado(state) {
 
 
 
+
 function calcularResumenDiarioTurnos(state, calendario, fechas, mostrarLibres = true) {
   const turnos = obtenerTurnosRelevantes(state, calendario, fechas, mostrarLibres);
-  const filas = turnos.map((turno) => ({
+  const filasTurnos = turnos.map((turno) => ({
     turno,
     codigo: turno.codigo,
     nombre: turno.nombre,
@@ -2530,6 +2742,17 @@ function calcularResumenDiarioTurnos(state, calendario, fechas, mostrarLibres = 
     cuentaComoPresencia: turno.cuentaComoPresencia,
     conteos: Object.fromEntries(fechas.map((fecha) => [fecha, 0])),
   }));
+  const filasIncidencias = Object.values(TIPOS_INCIDENCIA)
+    .filter((tipo) => mostrarLibres || false)
+    .map((tipo) => ({
+      turno: null,
+      codigo: tipo.codigo,
+      nombre: tipo.nombre,
+      color: tipo.color,
+      cuentaComoPresencia: false,
+      conteos: Object.fromEntries(fechas.map((fecha) => [fecha, 0])),
+    }));
+  const filas = [...filasTurnos, ...filasIncidencias];
   const filaPorCodigo = new Map(filas.map((fila) => [String(fila.codigo).toUpperCase(), fila]));
   const totalPresencia = Object.fromEntries(fechas.map((fecha) => [fecha, 0]));
   const totalActivos = Object.fromEntries(fechas.map((fecha) => [fecha, 0]));
@@ -2538,12 +2761,14 @@ function calcularResumenDiarioTurnos(state, calendario, fechas, mostrarLibres = 
     for (const profesional of state.profesionales || []) {
       if (!profesional.activo || !isWithinRange(fecha, profesional.fechaInicio, profesional.fechaFin)) continue;
       totalActivos[fecha] += 1;
-      const dia = calendario[profesional.id]?.[fecha];
-      if (!dia?.codigo) continue;
-      const turno = buscarTurnoPorCodigo(state.turnos, dia.codigo);
-      const fila = filaPorCodigo.get(String(dia.codigo).toUpperCase());
+      const diaBase = calendario[profesional.id]?.[fecha];
+      const dia = resolverDiaConIncidencia(state, profesional, diaBase, fecha);
+      if (!dia?.codigoBase) continue;
+      const codigoResumen = dia.incidencia ? dia.codigoVisible : dia.codigoBase;
+      const turno = dia.incidencia ? null : buscarTurnoPorCodigo(state.turnos, dia.codigoBase);
+      const fila = filaPorCodigo.get(String(codigoResumen).toUpperCase());
       if (fila) fila.conteos[fecha] += 1;
-      if (turno?.cuentaComoPresencia) totalPresencia[fecha] += 1;
+      if (!dia.incidencia && turno?.cuentaComoPresencia) totalPresencia[fecha] += 1;
     }
   }
 
@@ -2555,7 +2780,8 @@ function obtenerTurnosRelevantes(state, calendario, fechas, mostrarLibres = true
   for (const profesional of state.profesionales || []) {
     for (const fecha of fechas) {
       const codigo = calendario[profesional.id]?.[fecha]?.codigo;
-      if (codigo) codigosUsados.add(String(codigo).toUpperCase());
+      const incidencia = state.incidenciasDiarias?.find((item) => item.profesionalId === profesional.id && item.fecha === fecha);
+      if (codigo && !incidencia) codigosUsados.add(String(codigo).toUpperCase());
     }
   }
   return obtenerTurnosOrdenados(state.turnos || []).filter((turno) => {
@@ -2787,6 +3013,7 @@ function validarEstado(data, errores) {
   if (!Array.isArray(data.profesionales)) errores.push("La lista de profesionales no es valida.");
   if (!Array.isArray(data.turnos)) errores.push("La lista de turnos no es valida.");
   if (!Array.isArray(data.ciclos)) errores.push("La lista de ciclos no es valida.");
+  if (data.incidenciasDiarias && !Array.isArray(data.incidenciasDiarias)) errores.push("La lista de incidencias diarias no es valida.");
   if (errores.length) return;
 
   if (!Number.isFinite(Number(data.config.anioActivo))) errores.push("El ano activo no es valido.");
@@ -2807,6 +3034,7 @@ function validarEstado(data, errores) {
   }
 
   const ciclos = new Set(data.ciclos.map((ciclo) => ciclo.id));
+  const profesionales = new Set(data.profesionales.map((profesional) => profesional.id));
   for (const ciclo of data.ciclos) {
     if (!ciclo.id) errores.push("Hay un ciclo sin identificador.");
     if (!Array.isArray(ciclo.codigos) || !ciclo.codigos.length) errores.push(`El ciclo ${ciclo.nombre || ciclo.id} no tiene secuencia.`);
@@ -2825,6 +3053,19 @@ function validarEstado(data, errores) {
     if (profesional.fechaInicio && profesional.fechaFin && profesional.fechaFin < profesional.fechaInicio) errores.push(`Contrato con fechas invertidas en ${profesional.nombre || profesional.id}.`);
     if (!Number.isInteger(Number(profesional.posicionInicial))) errores.push(`Posicion inicial no valida en ${profesional.nombre || profesional.id}.`);
     if ("ordenVisual" in profesional && !Number.isFinite(Number(profesional.ordenVisual))) errores.push(`Orden visual no valido en ${profesional.nombre || profesional.id}.`);
+  }
+
+  const clavesIncidencia = new Set();
+  for (const incidencia of data.incidenciasDiarias || []) {
+    if (!incidencia.id) errores.push("Hay una incidencia sin identificador.");
+    if (!profesionales.has(incidencia.profesionalId)) errores.push(`Incidencia con profesional inexistente: ${incidencia.profesionalId}.`);
+    validarFecha(incidencia.fecha, `Fecha no valida en incidencia ${incidencia.id || ""}.`, errores);
+    if (!["V", "LD"].includes(incidencia.tipoIncidencia)) errores.push(`Tipo de incidencia no valido: ${incidencia.tipoIncidencia}.`);
+    if (!incidencia.codigoTurnoBase) errores.push(`Incidencia sin codigo de turno base: ${incidencia.id || ""}.`);
+    if (!Number.isFinite(Number(incidencia.horasTurnoBase)) || Number(incidencia.horasTurnoBase) < 0) errores.push(`Horas de turno base no validas en incidencia ${incidencia.id || ""}.`);
+    const clave = `${incidencia.profesionalId}|${incidencia.fecha}|${incidencia.escenarioId || "escenario-oficial"}`;
+    if (clavesIncidencia.has(clave)) errores.push(`Incidencia duplicada para profesional, fecha y escenario: ${clave}.`);
+    clavesIncidencia.add(clave);
   }
 }
 
@@ -2865,6 +3106,7 @@ function validarSnapshotIndexedDb(payload, errores) {
 
 
 // ---- src/js/ui/render.js ----
+
 
 
 
@@ -3140,6 +3382,10 @@ function renderCuadrante(state, calendario, selectedMonth) {
       </div>
       <label class="compact-field">Mes<select id="monthSelector">${MESES.map((m, i) => `<option value="${i}" ${i === selectedMonth ? "selected" : ""}>${m}</option>`).join("")}</select></label>
       <label class="checkbox-label summary-toggle"><input id="mostrarLibresResumen" type="checkbox" ${state.config.mostrarLibresResumen !== false ? "checked" : ""}> Mostrar libres y ausencias en el resumen</label>
+      <div class="incidence-legend">
+        <span><span class="shift-code" style="background:${TIPOS_INCIDENCIA.V.color};">V</span> Vacaciones</span>
+        <span><span class="shift-code" style="background:${TIPOS_INCIDENCIA.LD.color};">LD</span> Libre disposicion</span>
+      </div>
     </div>
     <div class="card">
       <div class="table-wrap">${tablaCuadrante(state, calendario, selectedMonth)}</div>
@@ -3159,11 +3405,16 @@ function tablaCuadrante(state, calendario, selectedMonth) {
   const rows = obtenerProfesionalesOrdenados(state.profesionales).map((p) => {
     let total = 0;
     const cells = fechas.map((fecha) => {
-      const dia = calendario[p.id]?.[fecha] || {};
-      total += Number(dia.horas || 0);
-      const turno = state.turnos.find((t) => t.codigo === dia.codigo);
+      const diaBase = calendario[p.id]?.[fecha] || {};
+      const dia = resolverDiaConIncidencia(state, p, diaBase, fecha);
+      total += Number((dia.horasEfectivas ?? dia.horas) || 0);
+      const turno = state.turnos.find((t) => t.codigo === dia.codigoBase || t.codigo === dia.codigo);
       const wd = weekdayIndex(fecha);
-      return `<td class="shift-cell ${wd === 0 || wd === 6 ? "weekend" : ""} ${fecha === today ? "today" : ""}" style="background:${turno?.color || "#fff"}" title="${escapeAttr(turno ? `${turno.nombre} · ${turno.inicio || ""}-${turno.fin || ""} · ${turno.horasComputables} h` : "Fuera de contrato o sin ciclo")}">${escapeHtml(dia.codigo || "")}</td>`;
+      const editable = diaBase.codigo && !diaBase.fueraContrato && !diaBase.sinCiclo;
+      const title = dia.incidencia
+        ? `${TIPOS_INCIDENCIA[dia.incidencia.tipoIncidencia].nombre}\nTurno previsto: ${dia.codigoBase}\nHoras descontadas: ${dia.horasVacaciones || dia.horasLibreDisposicion}`
+        : (turno ? `${turno.nombre} · ${turno.inicio || ""}-${turno.fin || ""} · ${turno.horasComputables} h` : "Fuera de contrato o sin ciclo");
+      return `<td class="shift-cell ${dia.incidencia ? "incidence-cell" : ""} ${wd === 0 || wd === 6 ? "weekend" : ""} ${fecha === today ? "today" : ""}" ${editable ? `data-action="edit-incidencia" data-id="${p.id}" data-fecha="${fecha}"` : ""} style="background:${dia.colorIncidencia || turno?.color || "#fff"}" title="${escapeAttr(title)}">${escapeHtml(dia.codigoVisible || dia.codigo || "")}</td>`;
     }).join("");
     return `<tr><td>${escapeHtml(p.nombre || p.identificador)}</td>${cells}<td><strong>${fmt(total)}</strong></td></tr>`;
   }).join("");
@@ -3178,14 +3429,18 @@ function tablaCuadrante(state, calendario, selectedMonth) {
 function renderJornada(state, resumenes) {
   const rows = resumenes.map((r) => {
     const p = state.profesionales.find((item) => item.id === r.profesionalId);
+    const vac = r.saldosAusencias.vacaciones;
+    const ld = r.saldosAusencias.libreDisposicion;
     return `<tr>
       <td>${escapeHtml(p?.nombre || "")}</td><td>${escapeHtml(MODALIDADES.find((m) => m.id === p?.modalidad)?.nombre || "")}</td>
       <td>${r.noches}</td><td>${r.jornada.base}</td><td>${p?.porcentajeJornada}%</td><td>${r.jornada.objetivo}</td>
-      <td>${r.total}</td><td>${fmt(r.diferencia)}</td><td>${estadoBadge(r.estado)}</td>
+      <td>${r.totalBasePrevisto}</td><td>${r.horasVacaciones}</td><td>${r.horasLibreDisposicion}</td><td>${r.total}</td><td>${fmt(r.diferencia)}</td><td>${estadoBadge(r.estado)}</td>
+      <td>Derecho ${vac.derecho} h · Usadas ${vac.utilizadas} h · Pendientes ${vac.pendientes} h${vac.exceso ? ` · Exceso ${vac.exceso} h` : ""}</td>
+      <td>Derecho ${ld.derecho} h · Usadas ${ld.utilizadas} h · Pendientes ${ld.pendientes} h${ld.exceso ? ` · Exceso ${ld.exceso} h` : ""}</td>
       <td>${r.prorrataPendiente ? '<span class="badge warn">Prorrata pendiente</span>' : ""} ${r.jornada.advertencia ? `<span class="badge danger">${escapeHtml(r.jornada.advertencia)}</span>` : ""}</td>
     </tr>`;
   }).join("");
-  return `<div class="card"><div class="section-heading"><h2>Resumen de jornada</h2><p>Comparación de horas programadas frente al objetivo anual.</p></div><div class="table-wrap"><table><thead><tr><th>Profesional</th><th>Modalidad</th><th>Noches</th><th>Jornada normativa</th><th>%</th><th>Objetivo</th><th>Programadas</th><th>Diferencia</th><th>Estado</th><th>Alertas</th></tr></thead><tbody>${rows || emptyRow(10)}</tbody></table></div></div>`;
+  return `<div class="card"><div class="section-heading"><h2>Resumen de jornada</h2><p>Horas base previstas, descuentos por vacaciones y libre disposicion, y horas efectivas frente al objetivo anual. Bolsas prorrateadas por porcentaje de jornada.</p></div><div class="table-wrap"><table><thead><tr><th>Profesional</th><th>Modalidad</th><th>Noches base</th><th>Jornada normativa</th><th>%</th><th>Objetivo</th><th>Base prevista</th><th>Vacaciones</th><th>LD</th><th>Efectivas</th><th>Diferencia</th><th>Estado</th><th>Saldo vacaciones</th><th>Saldo LD</th><th>Alertas</th></tr></thead><tbody>${rows || emptyRow(15)}</tbody></table></div></div>`;
 }
 
 function renderCopias(state) {
@@ -3256,6 +3511,7 @@ function escapeAttr(value) {
 
 
 // ---- src/js/app.js ----
+
 
 
 
@@ -3337,6 +3593,7 @@ function bindEvents() {
     const errores = validarProfesional(data);
     if (errores.length) return notify(errores.join(" "), true);
     const existing = state.profesionales.find((item) => item.id === data.id);
+    if (existing && profesionalTieneIncidencias(existing.id) && cambiaBaseProfesional(existing, data) && !confirm("Este profesional tiene vacaciones o libre disposicion registrados. Si cambia ciclo, fecha de inicio o posicion, se mantendran las incidencias pero pueden cambiar las horas descontadas. ¿Desea continuar?")) return;
     const payload = {
       ...(existing || crearProfesionalBase(state)),
       ...data,
@@ -3378,6 +3635,7 @@ function bindEvents() {
     try {
       const codigos = parsearSecuencia(data.secuencia).map((codigo) => codigo.toUpperCase());
       const existing = state.ciclos.find((item) => item.id === data.id);
+      if (existing && cicloTieneIncidencias(existing.id) && !confirm("Este ciclo tiene incidencias asociadas a profesionales. Al cambiar la secuencia se mantendran V/LD, pero pueden cambiar las horas descontadas segun el nuevo turno base. ¿Desea continuar?")) return;
       if (existing) Object.assign(existing, { nombre: data.nombre, codigos });
       else state.ciclos.push(crearCiclo(data.nombre, codigos, state.turnos));
       await persist();
@@ -3412,6 +3670,9 @@ async function handleAction(event) {
   if (action === "append-turno") {
     const input = root.querySelector("#cicloForm [name='secuencia']");
     input.value = `${input.value}${input.value.trim() ? ", " : ""}${event.currentTarget.dataset.code}`;
+  }
+  if (action === "edit-incidencia") {
+    await editarIncidenciaCelda(id, event.currentTarget.dataset.fecha);
   }
   if (action === "edit-prof") return fillForm("profesionalForm", state.profesionales.find((item) => item.id === id));
   if (action === "move-prof-up") {
@@ -3459,6 +3720,60 @@ async function handleAction(event) {
       await persist();
     }
   }
+}
+
+async function editarIncidenciaCelda(profesionalId, fecha) {
+  const profesional = state.profesionales.find((item) => item.id === profesionalId);
+  const diaBase = calendario[profesionalId]?.[fecha];
+  if (!profesional || !diaBase?.codigo || diaBase.fueraContrato || diaBase.sinCiclo) return notify("No se puede aplicar una incidencia en una celda sin turno generado o fuera de contrato.", true);
+  const actual = state.incidenciasDiarias.find((item) => item.profesionalId === profesionalId && item.fecha === fecha);
+  const opciones = [
+    `${diaBase.codigo} - Mantener turno original`,
+    "V - Vacaciones",
+    "LD - Libre disposicion",
+  ].join("\n");
+  const respuesta = prompt(`Seleccione una opcion para ${profesional.nombre} el ${fecha}:\n\n${opciones}\n\nEscriba: ${diaBase.codigo}, V o LD`, actual?.tipoIncidencia || diaBase.codigo);
+  if (respuesta === null) return;
+  const opcion = respuesta.trim().toUpperCase();
+  if (!opcion || opcion === diaBase.codigo.toUpperCase() || opcion === "MANTENER") {
+    eliminarIncidencia(state, profesionalId, fecha);
+    await persist();
+    return;
+  }
+  if (!TIPOS_INCIDENCIA[opcion]) return notify("Opcion no valida. Use V, LD o el codigo del turno original.", true);
+  if (!confirmarExcesoBolsa(profesional, opcion, Number(diaBase.horas || 0), actual)) return;
+  aplicarIncidencia(state, profesional, diaBase, opcion);
+  await persist();
+}
+
+function confirmarExcesoBolsa(profesional, tipoIncidencia, horasTurno, incidenciaActual = null) {
+  const derechos = calcularDerechosAusencias(profesional, state.config);
+  const usadoActual = calcularUsoActualIncidencias(state, calendario, profesional.id, tipoIncidencia);
+  const restaActual = incidenciaActual?.tipoIncidencia === tipoIncidencia ? Number(calendario[profesional.id]?.[incidenciaActual.fecha]?.horas || incidenciaActual.horasTurnoBase || 0) : 0;
+  const utilizadoSinCelda = usadoActual - restaActual;
+  const derecho = tipoIncidencia === "V" ? derechos.vacaciones : derechos.libreDisposicion;
+  const disponible = derecho - utilizadoSinCelda;
+  if (horasTurno <= disponible) return true;
+  const exceso = horasTurno - Math.max(0, disponible);
+  const nombre = TIPOS_INCIDENCIA[tipoIncidencia].nombre.toLowerCase();
+  return confirm(`Este turno descontara ${horasTurno} horas de ${nombre}.\nSolo quedan ${Math.max(0, disponible)} horas disponibles.\nLa aplicacion registrara un exceso de ${exceso} horas.\n¿Desea continuar?`);
+}
+
+function profesionalTieneIncidencias(profesionalId) {
+  return (state.incidenciasDiarias || []).some((incidencia) => incidencia.profesionalId === profesionalId);
+}
+
+function cicloTieneIncidencias(cicloId) {
+  const profesionalesCiclo = new Set(state.profesionales.filter((profesional) => profesional.cicloId === cicloId).map((profesional) => profesional.id));
+  return (state.incidenciasDiarias || []).some((incidencia) => profesionalesCiclo.has(incidencia.profesionalId));
+}
+
+function cambiaBaseProfesional(existing, data) {
+  return existing.cicloId !== data.cicloId
+    || existing.fechaInicioCiclo !== data.fechaInicioCiclo
+    || Number(existing.posicionInicial || 0) !== Number(data.posicionInicial || 0)
+    || existing.fechaInicio !== data.fechaInicio
+    || existing.fechaFin !== data.fechaFin;
 }
 
 function validarProfesional(data) {

@@ -137,6 +137,7 @@ function validarEstado(data, errores) {
   if (!Array.isArray(data.profesionales)) errores.push("La lista de profesionales no es valida.");
   if (!Array.isArray(data.turnos)) errores.push("La lista de turnos no es valida.");
   if (!Array.isArray(data.ciclos)) errores.push("La lista de ciclos no es valida.");
+  if (data.incidenciasDiarias && !Array.isArray(data.incidenciasDiarias)) errores.push("La lista de incidencias diarias no es valida.");
   if (errores.length) return;
 
   if (!Number.isFinite(Number(data.config.anioActivo))) errores.push("El ano activo no es valido.");
@@ -157,6 +158,7 @@ function validarEstado(data, errores) {
   }
 
   const ciclos = new Set(data.ciclos.map((ciclo) => ciclo.id));
+  const profesionales = new Set(data.profesionales.map((profesional) => profesional.id));
   for (const ciclo of data.ciclos) {
     if (!ciclo.id) errores.push("Hay un ciclo sin identificador.");
     if (!Array.isArray(ciclo.codigos) || !ciclo.codigos.length) errores.push(`El ciclo ${ciclo.nombre || ciclo.id} no tiene secuencia.`);
@@ -175,6 +177,19 @@ function validarEstado(data, errores) {
     if (profesional.fechaInicio && profesional.fechaFin && profesional.fechaFin < profesional.fechaInicio) errores.push(`Contrato con fechas invertidas en ${profesional.nombre || profesional.id}.`);
     if (!Number.isInteger(Number(profesional.posicionInicial))) errores.push(`Posicion inicial no valida en ${profesional.nombre || profesional.id}.`);
     if ("ordenVisual" in profesional && !Number.isFinite(Number(profesional.ordenVisual))) errores.push(`Orden visual no valido en ${profesional.nombre || profesional.id}.`);
+  }
+
+  const clavesIncidencia = new Set();
+  for (const incidencia of data.incidenciasDiarias || []) {
+    if (!incidencia.id) errores.push("Hay una incidencia sin identificador.");
+    if (!profesionales.has(incidencia.profesionalId)) errores.push(`Incidencia con profesional inexistente: ${incidencia.profesionalId}.`);
+    validarFecha(incidencia.fecha, `Fecha no valida en incidencia ${incidencia.id || ""}.`, errores);
+    if (!["V", "LD"].includes(incidencia.tipoIncidencia)) errores.push(`Tipo de incidencia no valido: ${incidencia.tipoIncidencia}.`);
+    if (!incidencia.codigoTurnoBase) errores.push(`Incidencia sin codigo de turno base: ${incidencia.id || ""}.`);
+    if (!Number.isFinite(Number(incidencia.horasTurnoBase)) || Number(incidencia.horasTurnoBase) < 0) errores.push(`Horas de turno base no validas en incidencia ${incidencia.id || ""}.`);
+    const clave = `${incidencia.profesionalId}|${incidencia.fecha}|${incidencia.escenarioId || "escenario-oficial"}`;
+    if (clavesIncidencia.has(clave)) errores.push(`Incidencia duplicada para profesional, fecha y escenario: ${clave}.`);
+    clavesIncidencia.add(clave);
   }
 }
 

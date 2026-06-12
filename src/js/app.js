@@ -5,6 +5,7 @@ import { diagnosticarTurnoProfesional, generarCalendarioAnual } from "./domain/g
 import { calcularResumenGlobal } from "./domain/calculoJornada.js";
 import { migrarEstado, normalizarEstado } from "./domain/migracion.js";
 import { moverProfesional, normalizarOrdenProfesionales } from "./domain/orden.js";
+import { aplicarIncidencia, calcularDerechosAusencias, calcularUsoActualIncidencias, eliminarIncidencia, TIPOS_INCIDENCIA } from "./domain/incidencias.js";
 import { clearState, exportDatabaseSnapshot, loadState, saveState } from "./storage/indexedDb.js";
 import { crearBackup, crearNombreCopia, descargarJson, formatearResumenImportacion, prepararImportacionBackup, sustituirEstadoConRollback } from "./services/backupService.js";
 import { renderApp } from "./ui/render.js";
@@ -80,6 +81,7 @@ function bindEvents() {
     const errores = validarProfesional(data);
     if (errores.length) return notify(errores.join(" "), true);
     const existing = state.profesionales.find((item) => item.id === data.id);
+    if (existing && profesionalTieneIncidencias(existing.id) && cambiaBaseProfesional(existing, data) && !confirm("Este profesional tiene vacaciones o libre disposicion registrados. Si cambia ciclo, fecha de inicio o posicion, se mantendran las incidencias pero pueden cambiar las horas descontadas. ¿Desea continuar?")) return;
     const payload = {
       ...(existing || crearProfesionalBase(state)),
       ...data,
@@ -121,6 +123,7 @@ function bindEvents() {
     try {
       const codigos = parsearSecuencia(data.secuencia).map((codigo) => codigo.toUpperCase());
       const existing = state.ciclos.find((item) => item.id === data.id);
+      if (existing && cicloTieneIncidencias(existing.id) && !confirm("Este ciclo tiene incidencias asociadas a profesionales. Al cambiar la secuencia se mantendran V/LD, pero pueden cambiar las horas descontadas segun el nuevo turno base. ¿Desea continuar?")) return;
       if (existing) Object.assign(existing, { nombre: data.nombre, codigos });
       else state.ciclos.push(crearCiclo(data.nombre, codigos, state.turnos));
       await persist();
@@ -155,6 +158,9 @@ async function handleAction(event) {
   if (action === "append-turno") {
     const input = root.querySelector("#cicloForm [name='secuencia']");
     input.value = `${input.value}${input.value.trim() ? ", " : ""}${event.currentTarget.dataset.code}`;
+  }
+  if (action === "edit-incidencia") {
+    await editarIncidenciaCelda(id, event.currentTarget.dataset.fecha);
   }
   if (action === "edit-prof") return fillForm("profesionalForm", state.profesionales.find((item) => item.id === id));
   if (action === "move-prof-up") {
@@ -202,6 +208,60 @@ async function handleAction(event) {
       await persist();
     }
   }
+}
+
+async function editarIncidenciaCelda(profesionalId, fecha) {
+  const profesional = state.profesionales.find((item) => item.id === profesionalId);
+  const diaBase = calendario[profesionalId]?.[fecha];
+  if (!profesional || !diaBase?.codigo || diaBase.fueraContrato || diaBase.sinCiclo) return notify("No se puede aplicar una incidencia en una celda sin turno generado o fuera de contrato.", true);
+  const actual = state.incidenciasDiarias.find((item) => item.profesionalId === profesionalId && item.fecha === fecha);
+  const opciones = [
+    `${diaBase.codigo} - Mantener turno original`,
+    "V - Vacaciones",
+    "LD - Libre disposicion",
+  ].join("\n");
+  const respuesta = prompt(`Seleccione una opcion para ${profesional.nombre} el ${fecha}:\n\n${opciones}\n\nEscriba: ${diaBase.codigo}, V o LD`, actual?.tipoIncidencia || diaBase.codigo);
+  if (respuesta === null) return;
+  const opcion = respuesta.trim().toUpperCase();
+  if (!opcion || opcion === diaBase.codigo.toUpperCase() || opcion === "MANTENER") {
+    eliminarIncidencia(state, profesionalId, fecha);
+    await persist();
+    return;
+  }
+  if (!TIPOS_INCIDENCIA[opcion]) return notify("Opcion no valida. Use V, LD o el codigo del turno original.", true);
+  if (!confirmarExcesoBolsa(profesional, opcion, Number(diaBase.horas || 0), actual)) return;
+  aplicarIncidencia(state, profesional, diaBase, opcion);
+  await persist();
+}
+
+function confirmarExcesoBolsa(profesional, tipoIncidencia, horasTurno, incidenciaActual = null) {
+  const derechos = calcularDerechosAusencias(profesional, state.config);
+  const usadoActual = calcularUsoActualIncidencias(state, calendario, profesional.id, tipoIncidencia);
+  const restaActual = incidenciaActual?.tipoIncidencia === tipoIncidencia ? Number(calendario[profesional.id]?.[incidenciaActual.fecha]?.horas || incidenciaActual.horasTurnoBase || 0) : 0;
+  const utilizadoSinCelda = usadoActual - restaActual;
+  const derecho = tipoIncidencia === "V" ? derechos.vacaciones : derechos.libreDisposicion;
+  const disponible = derecho - utilizadoSinCelda;
+  if (horasTurno <= disponible) return true;
+  const exceso = horasTurno - Math.max(0, disponible);
+  const nombre = TIPOS_INCIDENCIA[tipoIncidencia].nombre.toLowerCase();
+  return confirm(`Este turno descontara ${horasTurno} horas de ${nombre}.\nSolo quedan ${Math.max(0, disponible)} horas disponibles.\nLa aplicacion registrara un exceso de ${exceso} horas.\n¿Desea continuar?`);
+}
+
+function profesionalTieneIncidencias(profesionalId) {
+  return (state.incidenciasDiarias || []).some((incidencia) => incidencia.profesionalId === profesionalId);
+}
+
+function cicloTieneIncidencias(cicloId) {
+  const profesionalesCiclo = new Set(state.profesionales.filter((profesional) => profesional.cicloId === cicloId).map((profesional) => profesional.id));
+  return (state.incidenciasDiarias || []).some((incidencia) => profesionalesCiclo.has(incidencia.profesionalId));
+}
+
+function cambiaBaseProfesional(existing, data) {
+  return existing.cicloId !== data.cicloId
+    || existing.fechaInicioCiclo !== data.fechaInicioCiclo
+    || Number(existing.posicionInicial || 0) !== Number(data.posicionInicial || 0)
+    || existing.fechaInicio !== data.fechaInicio
+    || existing.fechaFin !== data.fechaFin;
 }
 
 function validarProfesional(data) {

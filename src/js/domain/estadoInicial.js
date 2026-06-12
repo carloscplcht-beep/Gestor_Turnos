@@ -1,5 +1,6 @@
 import { crearTurnosIniciales } from "./turnos.js";
 import { PERFIL_NORMATIVO_SESCAM_2019 } from "./normativa.js";
+import { crearConfiguracionAusenciasBase } from "./incidencias.js";
 
 export function crearEstadoInicial() {
   const turnos = crearTurnosIniciales();
@@ -13,6 +14,7 @@ export function crearEstadoInicial() {
       jornadaPersonalizada: 1519,
       mostrarLibresResumen: true,
       ultimaExportacionJson: "",
+      ausencias: crearConfiguracionAusenciasBase(),
     },
     turnos,
     ciclos: [
@@ -25,6 +27,7 @@ export function crearEstadoInicial() {
       },
     ],
     profesionales: [],
+    incidenciasDiarias: [],
   };
 }
 

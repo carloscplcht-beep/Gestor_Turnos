@@ -6,7 +6,7 @@
 2. Pulsar `Exportar copia JSON`.
 3. Guardar el archivo generado, con nombre similar a `gestor-turnos_copia_2026-06-12_1200.json`.
 
-La copia contiene la configuracion general, unidad, ano activo, profesionales, orden visual, turnos, colores, `cuentaComoPresencia`, ciclos, secuencias, asignaciones, fechas de contrato, fechas de inicio de ciclo, posiciones iniciales, configuracion de jornada, tabla normativa y una instantanea de IndexedDB.
+La copia contiene la configuracion general, unidad, ano activo, profesionales, orden visual, turnos, colores, `cuentaComoPresencia`, ciclos, secuencias, asignaciones, fechas de contrato, fechas de inicio de ciclo, posiciones iniciales, incidencias diarias `V`/`LD` con su turno base, configuracion de jornada, tabla normativa y una instantanea de IndexedDB.
 
 ## Importar en otro equipo
 
@@ -46,7 +46,7 @@ Si la copia entrante no es valida, no se importa. Si falla la escritura, se cons
 8. Exportar JSON.
 9. Abrir la aplicacion en un perfil limpio.
 10. Importar el JSON.
-11. Confirmar que profesionales, orden, ciclos, fechas, posiciones, horas, noches y sumatorios diarios coinciden.
+11. Confirmar que profesionales, orden, ciclos, fechas, posiciones, incidencias, horas, noches y sumatorios diarios coinciden.
 
 Ejecutar tambien:
 

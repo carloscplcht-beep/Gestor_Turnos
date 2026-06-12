@@ -10,6 +10,7 @@ import { migrarEstado, normalizarEstado } from "../src/js/domain/migracion.js";
 import { moverProfesional, obtenerProfesionalesOrdenados } from "../src/js/domain/orden.js";
 import { calcularResumenDiarioTurnos } from "../src/js/domain/resumenDiario.js";
 import { crearBackup, prepararImportacionBackup, sustituirEstadoConRollback, validarBackup } from "../src/js/services/backupService.js";
+import { aplicarIncidencia, calcularSaldosAusencias, eliminarIncidencia, resolverDiaConIncidencia } from "../src/js/domain/incidencias.js";
 
 globalThis.crypto ??= { randomUUID: () => `test-${Math.random()}` };
 
@@ -148,6 +149,96 @@ test("sumatorio diario: cuenta turnos, presencia, activos e inactivos historicos
   assert.deepEqual(soloPresencia.filas.map((fila) => fila.codigo), ["M", "X"]);
 });
 
+test("incidencias: vacaciones sobre turno de 7 horas descuenta 7 y deja efectivas 0", () => {
+  const state = estadoIncidencia(["M"]);
+  const profesional = state.profesionales[0];
+  const cal = generarCalendarioAnual(state);
+  aplicarIncidencia(state, profesional, cal[profesional.id]["2026-01-01"], "V");
+  const dia = resolverDiaConIncidencia(state, profesional, cal[profesional.id]["2026-01-01"], "2026-01-01");
+  const resumen = calcularResumenGlobal(state, cal)[0];
+  assert.equal(dia.codigoVisible, "V");
+  assert.equal(dia.horasEfectivas, 0);
+  assert.equal(dia.horasVacaciones, 7);
+  assert.equal(resumen.horasVacaciones, 7);
+  assert.equal(resumen.totalBasePrevisto, 2555);
+  assert.equal(resumen.total, 2548);
+});
+
+test("incidencias: LD sobre turno nocturno de 10 horas descuenta 10", () => {
+  const state = estadoIncidencia(["N"]);
+  const profesional = state.profesionales[0];
+  const cal = generarCalendarioAnual(state);
+  aplicarIncidencia(state, profesional, cal[profesional.id]["2026-01-01"], "LD");
+  const dia = resolverDiaConIncidencia(state, profesional, cal[profesional.id]["2026-01-01"], "2026-01-01");
+  const resumen = calcularResumenGlobal(state, cal)[0];
+  assert.equal(dia.codigoVisible, "LD");
+  assert.equal(dia.horasLibreDisposicion, 10);
+  assert.equal(resumen.horasLibreDisposicion, 10);
+  assert.equal(resumen.total, 3640);
+});
+
+test("incidencias: vacaciones sobre D12 descuenta 12 y eliminar restaura turno base", () => {
+  const state = estadoIncidencia(["D12"]);
+  const profesional = state.profesionales[0];
+  const cal = generarCalendarioAnual(state);
+  aplicarIncidencia(state, profesional, cal[profesional.id]["2026-01-01"], "V");
+  assert.equal(resolverDiaConIncidencia(state, profesional, cal[profesional.id]["2026-01-01"], "2026-01-01").horasVacaciones, 12);
+  eliminarIncidencia(state, profesional.id, "2026-01-01");
+  const restaurado = resolverDiaConIncidencia(state, profesional, cal[profesional.id]["2026-01-01"], "2026-01-01");
+  assert.equal(restaurado.codigoVisible, "D12");
+  assert.equal(restaurado.horasEfectivas, 12);
+});
+
+test("incidencias: cambiar V a LD no duplica descuentos", () => {
+  const state = estadoIncidencia(["M"]);
+  const profesional = state.profesionales[0];
+  const cal = generarCalendarioAnual(state);
+  aplicarIncidencia(state, profesional, cal[profesional.id]["2026-01-01"], "V");
+  aplicarIncidencia(state, profesional, cal[profesional.id]["2026-01-01"], "LD");
+  const resumen = calcularResumenGlobal(state, cal)[0];
+  assert.equal(state.incidenciasDiarias.length, 1);
+  assert.equal(resumen.horasVacaciones, 0);
+  assert.equal(resumen.horasLibreDisposicion, 7);
+});
+
+test("incidencias: bolsas, exceso y jornada parcial", () => {
+  const parcial = profesional("Media", "", "2026-01-01", "2026-12-31", 0, 50, "diurno");
+  const saldosParcial = calcularSaldosAusencias(parcial, 0, 0, { ausencias: { vacacionesHoras: 154, libreDisposicionHoras: 42, proporcionalJornada: true } });
+  assert.equal(saldosParcial.vacaciones.derecho, 77);
+  assert.equal(saldosParcial.libreDisposicion.derecho, 21);
+  const completo = profesional("Completa", "", "2026-01-01", "2026-12-31", 0, 100, "diurno");
+  const saldos = calcularSaldosAusencias(completo, 156, 0, { ausencias: { vacacionesHoras: 154, libreDisposicionHoras: 42, proporcionalJornada: true } });
+  assert.equal(saldos.vacaciones.utilizadas, 156);
+  assert.equal(saldos.vacaciones.exceso, 2);
+  assert.equal(saldos.vacaciones.pendientes, 0);
+});
+
+test("incidencias: sumatorio diario excluye base y cuenta V/LD como ausencia", () => {
+  const state = estadoIncidencia(["D12"]);
+  const profesional = state.profesionales[0];
+  const cal = generarCalendarioAnual(state);
+  aplicarIncidencia(state, profesional, cal[profesional.id]["2026-01-01"], "V");
+  const resumen = calcularResumenDiarioTurnos(state, cal, ["2026-01-01"], true);
+  assert.equal(resumen.filas.find((fila) => fila.codigo === "D12").conteos["2026-01-01"], 0);
+  assert.equal(resumen.filas.find((fila) => fila.codigo === "V").conteos["2026-01-01"], 1);
+  assert.equal(resumen.totalPresencia["2026-01-01"], 0);
+  assert.equal(resumen.totalActivos["2026-01-01"], 1);
+});
+
+test("incidencias: exportar e importar conserva cuadrante, horas y saldos", () => {
+  const state = estadoIncidencia(["D12", "N", "M"]);
+  const profesional = state.profesionales[0];
+  const cal = generarCalendarioAnual(state);
+  aplicarIncidencia(state, profesional, cal[profesional.id]["2026-01-01"], "V");
+  aplicarIncidencia(state, profesional, cal[profesional.id]["2026-01-02"], "LD");
+  const backup = crearBackup(state);
+  assert.deepEqual(validarBackup(backup), []);
+  const importado = prepararImportacionBackup(JSON.parse(JSON.stringify(backup))).data;
+  const calImportado = generarCalendarioAnual(importado);
+  assert.deepEqual(importado.incidenciasDiarias.map((incidencia) => incidencia.tipoIncidencia), ["V", "LD"]);
+  assert.deepEqual(calcularResumenGlobal(importado, calImportado), calcularResumenGlobal(state, cal));
+});
+
 test("persistencia logica: normaliza importacion sin perder orden visual", () => {
   const state = baseState();
   state.profesionales = [
@@ -278,6 +369,7 @@ function baseState(overrides = {}) {
     turnos,
     ciclos: [],
     profesionales: [],
+    incidenciasDiarias: [],
     ...overrides,
   };
 }
@@ -302,6 +394,20 @@ function estadoCompletoCopias() {
       fechaInicioCiclo: `2026-01-${String(index + 1).padStart(2, "0")}`,
     },
   ));
+  return state;
+}
+
+function estadoIncidencia(codigos) {
+  const turnosIncidencia = crearTurnosIniciales();
+  const ciclo = crearCiclo("Incidencias", codigos, turnosIncidencia);
+  const state = baseState({ turnos: turnosIncidencia, ciclos: [ciclo], incidenciasDiarias: [] });
+  state.profesionales = [
+    profesional("Incidencias", ciclo.id, "2026-01-01", "2026-12-31", 0, 100, "diurno", {
+      id: "prof-incidencias",
+      ordenVisual: 1,
+      fechaInicioCiclo: "2026-01-01",
+    }),
+  ];
   return state;
 }
 

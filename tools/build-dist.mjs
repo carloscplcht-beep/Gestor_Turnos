@@ -45,6 +45,7 @@ async function buildScript() {
     "src/js/domain/ciclos.js",
     "src/js/domain/normativa.js",
     "src/js/domain/orden.js",
+    "src/js/domain/incidencias.js",
     "src/js/domain/generadorCalendario.js",
     "src/js/domain/calculoJornada.js",
     "src/js/domain/estadoInicial.js",

@@ -3,6 +3,7 @@ import { MODALIDADES, PERFIL_NORMATIVO_SESCAM_2019 } from "../domain/normativa.j
 import { resumenCiclo } from "../domain/ciclos.js";
 import { obtenerProfesionalesOrdenados, obtenerTurnosOrdenados } from "../domain/orden.js";
 import { calcularResumenDiarioTurnos } from "../domain/resumenDiario.js";
+import { resolverDiaConIncidencia, TIPOS_INCIDENCIA } from "../domain/incidencias.js";
 import { monthDates, parseDate, weekdayIndex } from "../utils/dateUtils.js";
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -274,6 +275,10 @@ function renderCuadrante(state, calendario, selectedMonth) {
       </div>
       <label class="compact-field">Mes<select id="monthSelector">${MESES.map((m, i) => `<option value="${i}" ${i === selectedMonth ? "selected" : ""}>${m}</option>`).join("")}</select></label>
       <label class="checkbox-label summary-toggle"><input id="mostrarLibresResumen" type="checkbox" ${state.config.mostrarLibresResumen !== false ? "checked" : ""}> Mostrar libres y ausencias en el resumen</label>
+      <div class="incidence-legend">
+        <span><span class="shift-code" style="background:${TIPOS_INCIDENCIA.V.color};">V</span> Vacaciones</span>
+        <span><span class="shift-code" style="background:${TIPOS_INCIDENCIA.LD.color};">LD</span> Libre disposicion</span>
+      </div>
     </div>
     <div class="card">
       <div class="table-wrap">${tablaCuadrante(state, calendario, selectedMonth)}</div>
@@ -293,11 +298,16 @@ function tablaCuadrante(state, calendario, selectedMonth) {
   const rows = obtenerProfesionalesOrdenados(state.profesionales).map((p) => {
     let total = 0;
     const cells = fechas.map((fecha) => {
-      const dia = calendario[p.id]?.[fecha] || {};
-      total += Number(dia.horas || 0);
-      const turno = state.turnos.find((t) => t.codigo === dia.codigo);
+      const diaBase = calendario[p.id]?.[fecha] || {};
+      const dia = resolverDiaConIncidencia(state, p, diaBase, fecha);
+      total += Number((dia.horasEfectivas ?? dia.horas) || 0);
+      const turno = state.turnos.find((t) => t.codigo === dia.codigoBase || t.codigo === dia.codigo);
       const wd = weekdayIndex(fecha);
-      return `<td class="shift-cell ${wd === 0 || wd === 6 ? "weekend" : ""} ${fecha === today ? "today" : ""}" style="background:${turno?.color || "#fff"}" title="${escapeAttr(turno ? `${turno.nombre} · ${turno.inicio || ""}-${turno.fin || ""} · ${turno.horasComputables} h` : "Fuera de contrato o sin ciclo")}">${escapeHtml(dia.codigo || "")}</td>`;
+      const editable = diaBase.codigo && !diaBase.fueraContrato && !diaBase.sinCiclo;
+      const title = dia.incidencia
+        ? `${TIPOS_INCIDENCIA[dia.incidencia.tipoIncidencia].nombre}\nTurno previsto: ${dia.codigoBase}\nHoras descontadas: ${dia.horasVacaciones || dia.horasLibreDisposicion}`
+        : (turno ? `${turno.nombre} · ${turno.inicio || ""}-${turno.fin || ""} · ${turno.horasComputables} h` : "Fuera de contrato o sin ciclo");
+      return `<td class="shift-cell ${dia.incidencia ? "incidence-cell" : ""} ${wd === 0 || wd === 6 ? "weekend" : ""} ${fecha === today ? "today" : ""}" ${editable ? `data-action="edit-incidencia" data-id="${p.id}" data-fecha="${fecha}"` : ""} style="background:${dia.colorIncidencia || turno?.color || "#fff"}" title="${escapeAttr(title)}">${escapeHtml(dia.codigoVisible || dia.codigo || "")}</td>`;
     }).join("");
     return `<tr><td>${escapeHtml(p.nombre || p.identificador)}</td>${cells}<td><strong>${fmt(total)}</strong></td></tr>`;
   }).join("");
@@ -312,14 +322,18 @@ function tablaCuadrante(state, calendario, selectedMonth) {
 function renderJornada(state, resumenes) {
   const rows = resumenes.map((r) => {
     const p = state.profesionales.find((item) => item.id === r.profesionalId);
+    const vac = r.saldosAusencias.vacaciones;
+    const ld = r.saldosAusencias.libreDisposicion;
     return `<tr>
       <td>${escapeHtml(p?.nombre || "")}</td><td>${escapeHtml(MODALIDADES.find((m) => m.id === p?.modalidad)?.nombre || "")}</td>
       <td>${r.noches}</td><td>${r.jornada.base}</td><td>${p?.porcentajeJornada}%</td><td>${r.jornada.objetivo}</td>
-      <td>${r.total}</td><td>${fmt(r.diferencia)}</td><td>${estadoBadge(r.estado)}</td>
+      <td>${r.totalBasePrevisto}</td><td>${r.horasVacaciones}</td><td>${r.horasLibreDisposicion}</td><td>${r.total}</td><td>${fmt(r.diferencia)}</td><td>${estadoBadge(r.estado)}</td>
+      <td>Derecho ${vac.derecho} h · Usadas ${vac.utilizadas} h · Pendientes ${vac.pendientes} h${vac.exceso ? ` · Exceso ${vac.exceso} h` : ""}</td>
+      <td>Derecho ${ld.derecho} h · Usadas ${ld.utilizadas} h · Pendientes ${ld.pendientes} h${ld.exceso ? ` · Exceso ${ld.exceso} h` : ""}</td>
       <td>${r.prorrataPendiente ? '<span class="badge warn">Prorrata pendiente</span>' : ""} ${r.jornada.advertencia ? `<span class="badge danger">${escapeHtml(r.jornada.advertencia)}</span>` : ""}</td>
     </tr>`;
   }).join("");
-  return `<div class="card"><div class="section-heading"><h2>Resumen de jornada</h2><p>Comparación de horas programadas frente al objetivo anual.</p></div><div class="table-wrap"><table><thead><tr><th>Profesional</th><th>Modalidad</th><th>Noches</th><th>Jornada normativa</th><th>%</th><th>Objetivo</th><th>Programadas</th><th>Diferencia</th><th>Estado</th><th>Alertas</th></tr></thead><tbody>${rows || emptyRow(10)}</tbody></table></div></div>`;
+  return `<div class="card"><div class="section-heading"><h2>Resumen de jornada</h2><p>Horas base previstas, descuentos por vacaciones y libre disposicion, y horas efectivas frente al objetivo anual. Bolsas prorrateadas por porcentaje de jornada.</p></div><div class="table-wrap"><table><thead><tr><th>Profesional</th><th>Modalidad</th><th>Noches base</th><th>Jornada normativa</th><th>%</th><th>Objetivo</th><th>Base prevista</th><th>Vacaciones</th><th>LD</th><th>Efectivas</th><th>Diferencia</th><th>Estado</th><th>Saldo vacaciones</th><th>Saldo LD</th><th>Alertas</th></tr></thead><tbody>${rows || emptyRow(15)}</tbody></table></div></div>`;
 }
 
 function renderCopias(state) {
