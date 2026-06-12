@@ -300,6 +300,16 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .wide-field { grid-column: span 3; }
 .compact-field { max-width: 260px; }
 label { display: grid; gap: 6px; color: #4b6478; font-size: 12px; font-weight: 760; }
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+}
+.checkbox-label input {
+  width: auto;
+  margin: 0;
+}
 input, select, textarea {
   width: 100%;
   border: 1px solid var(--line);
@@ -359,6 +369,26 @@ tr:last-child td { border-bottom: 0; }
 .today { outline: 2px solid var(--teal); outline-offset: -2px; }
 .shift-cell { text-align: center; font-weight: 820; color: #123047; }
 .shift-cell:hover { filter: saturate(1.08); }
+.summary-toggle { margin-top: 14px; max-width: max-content; }
+.calendar .summary-title td {
+  position: static;
+  background: #e2f0f6 !important;
+  color: #123047;
+  border-top: 2px solid var(--line-strong);
+  font-weight: 820;
+}
+.summary-row td:first-child,
+.summary-total td:first-child {
+  background: #f8fbfd;
+  font-weight: 800;
+}
+.summary-count {
+  text-align: center;
+  font-weight: 760;
+  color: #123047;
+}
+.summary-total td { background: #eef6fa !important; font-weight: 820; }
+.summary-total.active-total td { background: #ecf8f6 !important; }
 
 .muted { color: var(--muted); }
 .badge, .shift-code {
@@ -2036,16 +2066,16 @@ const GRUPOS_COBERTURA = ["manana", "tarde", "noche", "diurno12", "nocturno12", 
 
 function crearTurnosIniciales() {
   return [
-    turno("M", "Manana", "08:00", "15:00", 7, "manana", "#f8d66d", false),
-    turno("T", "Tarde", "15:00", "22:00", 7, "tarde", "#f5a85b", false),
-    turno("N", "Noche", "22:00", "08:00", 10, "noche", "#6fa8dc", true),
-    turno("D12", "Diurno 12 h", "08:00", "20:00", 12, "diurno12", "#b7d7f4", false),
-    turno("N12", "Nocturno 12 h", "20:00", "08:00", 12, "noche", "#4b8ccc", true),
-    turno("L", "Libre", "", "", 0, "libre", "#b7dfae", false),
+    turno("M", "Manana", "08:00", "15:00", 7, "manana", "#f8d66d", false, 1, true),
+    turno("T", "Tarde", "15:00", "22:00", 7, "tarde", "#f5a85b", false, 2, true),
+    turno("N", "Noche", "22:00", "08:00", 10, "noche", "#6fa8dc", true, 3, true),
+    turno("D12", "Diurno 12 h", "08:00", "20:00", 12, "diurno12", "#b7d7f4", false, 4, true),
+    turno("N12", "Nocturno 12 h", "20:00", "08:00", 12, "noche", "#4b8ccc", true, 5, true),
+    turno("L", "Libre", "", "", 0, "libre", "#b7dfae", false, 6, false),
   ];
 }
 
-function turno(codigo, nombre, inicio, fin, horasComputables, grupoCobertura, color, cruzaMedianoche) {
+function turno(codigo, nombre, inicio, fin, horasComputables, grupoCobertura, color, cruzaMedianoche, ordenVisual = 0, cuentaComoPresencia = Number(horasComputables) > 0) {
   return {
     id: crypto.randomUUID(),
     codigo,
@@ -2056,6 +2086,8 @@ function turno(codigo, nombre, inicio, fin, horasComputables, grupoCobertura, co
     grupoCobertura,
     color,
     cruzaMedianoche: Boolean(cruzaMedianoche),
+    ordenVisual: Number(ordenVisual || 0),
+    cuentaComoPresencia: Boolean(cuentaComoPresencia),
     activo: true,
   };
 }
@@ -2212,6 +2244,53 @@ function roundHours(value) {
 
 
 
+// ---- src/js/domain/orden.js ----
+function obtenerProfesionalesOrdenados(profesionales = []) {
+  return [...profesionales].sort(compararOrdenVisual);
+}
+
+function compararOrdenVisual(a, b) {
+  const ordenA = numeroOrden(a?.ordenVisual);
+  const ordenB = numeroOrden(b?.ordenVisual);
+  if (ordenA !== ordenB) return ordenA - ordenB;
+  const nombre = String(a?.nombre || "").localeCompare(String(b?.nombre || ""), "es", { sensitivity: "base" });
+  if (nombre !== 0) return nombre;
+  return String(a?.id || "").localeCompare(String(b?.id || ""), "es", { sensitivity: "base" });
+}
+
+function normalizarOrdenProfesionales(profesionales = []) {
+  obtenerProfesionalesOrdenados(profesionales).forEach((profesional, index) => {
+    profesional.ordenVisual = index + 1;
+  });
+  return profesionales;
+}
+
+function moverProfesional(profesionales = [], profesionalId, direccion) {
+  const ordenados = obtenerProfesionalesOrdenados(profesionales);
+  const index = ordenados.findIndex((profesional) => profesional.id === profesionalId);
+  const destino = index + Number(direccion);
+  if (index < 0 || destino < 0 || destino >= ordenados.length) return profesionales;
+  [ordenados[index].ordenVisual, ordenados[destino].ordenVisual] = [ordenados[destino].ordenVisual, ordenados[index].ordenVisual];
+  return normalizarOrdenProfesionales(profesionales);
+}
+
+function obtenerTurnosOrdenados(turnos = []) {
+  return [...turnos].sort((a, b) => {
+    const ordenA = numeroOrden(a?.ordenVisual);
+    const ordenB = numeroOrden(b?.ordenVisual);
+    if (ordenA !== ordenB) return ordenA - ordenB;
+    const grupo = String(a?.grupoCobertura || "").localeCompare(String(b?.grupoCobertura || ""), "es", { sensitivity: "base" });
+    if (grupo !== 0) return grupo;
+    return String(a?.codigo || "").localeCompare(String(b?.codigo || ""), "es", { sensitivity: "base" });
+  });
+}
+
+function numeroOrden(value) {
+  const numero = Number(value);
+  return Number.isFinite(numero) ? numero : Number.MAX_SAFE_INTEGER;
+}
+
+
 // ---- src/js/domain/generadorCalendario.js ----
 
 
@@ -2249,8 +2328,30 @@ function generarDia(profesional, fecha, state) {
   };
 }
 
+function diagnosticarTurnoProfesional(state, profesionalId, fechaConsultada) {
+  const profesional = state.profesionales.find((item) => item.id === profesionalId);
+  if (!profesional) return null;
+  const ciclo = state.ciclos.find((item) => item.id === profesional.cicloId && item.activo && !item.archivado);
+  const longitudCiclo = ciclo?.codigos?.length || 0;
+  const diasTranscurridos = ciclo && profesional.fechaInicioCiclo ? daysBetween(profesional.fechaInicioCiclo, fechaConsultada) : null;
+  const indiceCalculado = longitudCiclo && diasTranscurridos !== null ? moduloPositivo(diasTranscurridos + Number(profesional.posicionInicial || 0), longitudCiclo) : null;
+  return {
+    profesionalId: profesional.id,
+    nombre: profesional.nombre,
+    ordenVisual: profesional.ordenVisual,
+    cicloId: profesional.cicloId,
+    fechaInicioCiclo: profesional.fechaInicioCiclo,
+    posicionInicial: Number(profesional.posicionInicial || 0),
+    fechaConsultada,
+    diasTranscurridos,
+    indiceCalculado,
+    turnoResultante: indiceCalculado !== null ? ciclo.codigos[indiceCalculado] : null,
+  };
+}
+
 
 // ---- src/js/domain/calculoJornada.js ----
+
 
 
 function calcularResumenProfesional(profesional, calendario, state) {
@@ -2297,7 +2398,7 @@ function calcularResumenProfesional(profesional, calendario, state) {
 }
 
 function calcularResumenGlobal(state, calendario) {
-  return state.profesionales.map((profesional) => calcularResumenProfesional(profesional, calendario, state));
+  return obtenerProfesionalesOrdenados(state.profesionales).map((profesional) => calcularResumenProfesional(profesional, calendario, state));
 }
 
 function contarDesglose(dia, desglose) {
@@ -2323,6 +2424,7 @@ function crearEstadoInicial() {
       anioActivo: new Date().getFullYear(),
       perfilNormativoId: PERFIL_NORMATIVO_SESCAM_2019.id,
       jornadaPersonalizada: 1519,
+      mostrarLibresResumen: true,
     },
     turnos,
     ciclos: [
@@ -2352,9 +2454,97 @@ function crearProfesionalBase(state) {
     cicloId: state.ciclos[0]?.id || "",
     posicionInicial: 0,
     fechaInicioCiclo: `${state.config.anioActivo}-01-01`,
+    ordenVisual: index,
     jornadaManual: "",
     activo: true,
   };
+}
+
+
+// ---- src/js/domain/migracion.js ----
+
+function migrarEstado(state) {
+  if (!state || typeof state !== "object") return state;
+  state.schemaVersion = Math.max(Number(state.schemaVersion || 1), 2);
+  state.config ??= {};
+  if (typeof state.config.mostrarLibresResumen !== "boolean") state.config.mostrarLibresResumen = true;
+  migrarProfesionales(state.profesionales || []);
+  migrarTurnos(state.turnos || []);
+  return state;
+}
+
+function migrarProfesionales(profesionales) {
+  profesionales.forEach((profesional, index) => {
+    if (!Number.isFinite(Number(profesional.ordenVisual))) profesional.ordenVisual = index + 1;
+    if (typeof profesional.activo !== "boolean") profesional.activo = true;
+  });
+  return profesionales;
+}
+
+function migrarTurnos(turnos) {
+  turnos.forEach((turno, index) => {
+    if (!Number.isFinite(Number(turno.ordenVisual))) turno.ordenVisual = index + 1;
+    if (typeof turno.cuentaComoPresencia !== "boolean") turno.cuentaComoPresencia = Number(turno.horasComputables || 0) > 0;
+    if (String(turno.codigo || "").toUpperCase() === "L") turno.cuentaComoPresencia = false;
+  });
+  return turnos;
+}
+
+function normalizarEstado(state) {
+  migrarEstado(state);
+  normalizarOrdenProfesionales(state.profesionales || []);
+  return state;
+}
+
+
+// ---- src/js/domain/resumenDiario.js ----
+
+
+
+function calcularResumenDiarioTurnos(state, calendario, fechas, mostrarLibres = true) {
+  const turnos = obtenerTurnosRelevantes(state, calendario, fechas, mostrarLibres);
+  const filas = turnos.map((turno) => ({
+    turno,
+    codigo: turno.codigo,
+    nombre: turno.nombre,
+    color: turno.color,
+    cuentaComoPresencia: turno.cuentaComoPresencia,
+    conteos: Object.fromEntries(fechas.map((fecha) => [fecha, 0])),
+  }));
+  const filaPorCodigo = new Map(filas.map((fila) => [String(fila.codigo).toUpperCase(), fila]));
+  const totalPresencia = Object.fromEntries(fechas.map((fecha) => [fecha, 0]));
+  const totalActivos = Object.fromEntries(fechas.map((fecha) => [fecha, 0]));
+
+  for (const fecha of fechas) {
+    for (const profesional of state.profesionales || []) {
+      if (!profesional.activo || !isWithinRange(fecha, profesional.fechaInicio, profesional.fechaFin)) continue;
+      totalActivos[fecha] += 1;
+      const dia = calendario[profesional.id]?.[fecha];
+      if (!dia?.codigo) continue;
+      const turno = buscarTurnoPorCodigo(state.turnos, dia.codigo);
+      const fila = filaPorCodigo.get(String(dia.codigo).toUpperCase());
+      if (fila) fila.conteos[fecha] += 1;
+      if (turno?.cuentaComoPresencia) totalPresencia[fecha] += 1;
+    }
+  }
+
+  return { filas, totalPresencia, totalActivos };
+}
+
+function obtenerTurnosRelevantes(state, calendario, fechas, mostrarLibres = true) {
+  const codigosUsados = new Set();
+  for (const profesional of state.profesionales || []) {
+    for (const fecha of fechas) {
+      const codigo = calendario[profesional.id]?.[fecha]?.codigo;
+      if (codigo) codigosUsados.add(String(codigo).toUpperCase());
+    }
+  }
+  return obtenerTurnosOrdenados(state.turnos || []).filter((turno) => {
+    const usado = codigosUsados.has(String(turno.codigo).toUpperCase());
+    const relevante = turno.activo || usado;
+    if (!relevante) return false;
+    return mostrarLibres || turno.cuentaComoPresencia;
+  });
 }
 
 
@@ -2438,6 +2628,8 @@ function descargarJson(nombre, data) {
 
 
 // ---- src/js/ui/render.js ----
+
+
 
 
 
@@ -2608,6 +2800,7 @@ function renderProfesionales(state, resumenes) {
       <form id="profesionalForm" class="form-grid">
         <input type="hidden" name="id">
         <label>Nombre y apellidos<input name="nombre" required></label>
+        <label>Orden visual<input name="ordenVisual" type="number" min="1" step="1" value="${state.profesionales.length + 1}"></label>
         <label>Categoría<input name="categoria" value="Enfermería"></label>
         <label>% jornada<input name="porcentajeJornada" type="number" min="1" max="100" step="0.01" value="100"></label>
         <label>Modalidad<select name="modalidad">${options(MODALIDADES.map((m) => [m.id, m.nombre]))}</select></label>
@@ -2627,18 +2820,18 @@ function renderProfesionales(state, resumenes) {
 }
 
 function tablaProfesionales(state, resumenes) {
-  const rows = state.profesionales.map((p) => {
+  const rows = obtenerProfesionalesOrdenados(state.profesionales).map((p) => {
     const r = resumenes.find((item) => item.profesionalId === p.id);
     const ciclo = state.ciclos.find((c) => c.id === p.cicloId);
     return `<tr>
-      <td>${escapeHtml(p.identificador)}</td><td>${escapeHtml(p.nombre)}</td><td>${escapeHtml(p.categoria)}</td>
+      <td>${p.ordenVisual ?? ""}</td><td>${escapeHtml(p.identificador)}</td><td>${escapeHtml(p.nombre)}</td><td>${escapeHtml(p.categoria)}</td>
       <td>${escapeHtml(MODALIDADES.find((m) => m.id === p.modalidad)?.nombre || p.modalidad)}</td>
       <td>${p.porcentajeJornada}%</td><td>${escapeHtml(ciclo?.nombre || "Sin ciclo")}</td>
       <td>${r?.noches ?? 0}</td><td>${r?.jornada.objetivo ?? 0}</td><td>${r?.total ?? 0}</td><td>${estadoBadge(r?.estado)}</td>
-      <td><button class="ghost" data-action="edit-prof" data-id="${p.id}">Editar</button><button class="ghost" data-action="delete-prof" data-id="${p.id}">Eliminar</button></td>
+      <td><button class="ghost" data-action="move-prof-up" data-id="${p.id}">Subir</button><button class="ghost" data-action="move-prof-down" data-id="${p.id}">Bajar</button><button class="ghost" data-action="edit-prof" data-id="${p.id}">Editar</button><button class="ghost" data-action="delete-prof" data-id="${p.id}">Eliminar</button></td>
     </tr>`;
   }).join("");
-  return `<table><thead><tr><th>ID</th><th>Nombre</th><th>Categoría</th><th>Modalidad</th><th>%</th><th>Ciclo</th><th>Noches</th><th>Objetivo</th><th>Programadas</th><th>Estado</th><th></th></tr></thead><tbody>${rows || emptyRow(11)}</tbody></table>`;
+  return `<table><thead><tr><th>Orden</th><th>ID</th><th>Nombre</th><th>Categoría</th><th>Modalidad</th><th>%</th><th>Ciclo</th><th>Noches</th><th>Objetivo</th><th>Programadas</th><th>Estado</th><th></th></tr></thead><tbody>${rows || emptyRow(12)}</tbody></table>`;
 }
 
 function renderTurnos(state) {
@@ -2657,7 +2850,9 @@ function renderTurnos(state) {
         <label>Horas computables<input name="horasComputables" type="number" min="0" step="0.01" required></label>
         <label>Grupo<select name="grupoCobertura">${options([["manana","Mañana"],["tarde","Tarde"],["noche","Noche"],["diurno12","Diurno 12h"],["nocturno12","Nocturno 12h"],["libre","Libre"],["otro","Otro"]])}</select></label>
         <label>Color<input name="color" type="color" value="#6fa8dc"></label>
+        <label>Orden visual<input name="ordenVisual" type="number" min="1" step="1" value="${state.turnos.length + 1}"></label>
         <label>Atraviesa medianoche<select name="cruzaMedianoche"><option value="false">No</option><option value="true">Sí</option></select></label>
+        <label class="checkbox-label"><input name="cuentaComoPresencia" type="checkbox" value="true" checked> Cuenta como presencia</label>
         <div class="actions"><button type="submit">Guardar turno</button><button type="button" class="secondary" data-action="clear-turno-form">Limpiar</button></div>
       </form>
     </div>
@@ -2666,8 +2861,8 @@ function renderTurnos(state) {
 }
 
 function tablaTurnos(state) {
-  const rows = state.turnos.map((t) => `<tr><td><span class="shift-code" style="background:${t.color};">${escapeHtml(t.codigo)}</span></td><td>${escapeHtml(t.nombre)}</td><td>${t.inicio || "-"}</td><td>${t.fin || "-"}</td><td>${t.horasComputables}</td><td>${escapeHtml(t.grupoCobertura)}</td><td>${t.cruzaMedianoche ? "Sí" : "No"}</td><td>${t.activo ? "Activo" : "Inactivo"}</td><td><button class="ghost" data-action="edit-turno" data-id="${t.id}">Editar</button><button class="ghost" data-action="delete-turno" data-id="${t.id}">Eliminar</button></td></tr>`).join("");
-  return `<table><thead><tr><th>Código</th><th>Nombre</th><th>Inicio</th><th>Fin</th><th>Horas</th><th>Grupo</th><th>Medianoche</th><th>Estado</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  const rows = obtenerTurnosOrdenados(state.turnos).map((t) => `<tr><td>${t.ordenVisual ?? ""}</td><td><span class="shift-code" style="background:${t.color};">${escapeHtml(t.codigo)}</span></td><td>${escapeHtml(t.nombre)}</td><td>${t.inicio || "-"}</td><td>${t.fin || "-"}</td><td>${t.horasComputables}</td><td>${escapeHtml(t.grupoCobertura)}</td><td>${t.cruzaMedianoche ? "Sí" : "No"}</td><td>${t.cuentaComoPresencia ? "Sí" : "No"}</td><td>${t.activo ? "Activo" : "Inactivo"}</td><td><button class="ghost" data-action="edit-turno" data-id="${t.id}">Editar</button><button class="ghost" data-action="delete-turno" data-id="${t.id}">Eliminar</button></td></tr>`).join("");
+  return `<table><thead><tr><th>Orden</th><th>Código</th><th>Nombre</th><th>Inicio</th><th>Fin</th><th>Horas</th><th>Grupo</th><th>Medianoche</th><th>Presencia</th><th>Estado</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function renderCiclos(state) {
@@ -2707,6 +2902,7 @@ function renderCuadrante(state, calendario, selectedMonth) {
         <p>Vista de planificación por profesional con totales mensuales.</p>
       </div>
       <label class="compact-field">Mes<select id="monthSelector">${MESES.map((m, i) => `<option value="${i}" ${i === selectedMonth ? "selected" : ""}>${m}</option>`).join("")}</select></label>
+      <label class="checkbox-label summary-toggle"><input id="mostrarLibresResumen" type="checkbox" ${state.config.mostrarLibresResumen !== false ? "checked" : ""}> Mostrar libres y ausencias en el resumen</label>
     </div>
     <div class="card">
       <div class="table-wrap">${tablaCuadrante(state, calendario, selectedMonth)}</div>
@@ -2723,7 +2919,7 @@ function tablaCuadrante(state, calendario, selectedMonth) {
     const wd = weekdayIndex(fecha);
     return `<th class="day-head ${wd === 0 || wd === 6 ? "weekend" : ""} ${fecha === today ? "today" : ""}">${d}<br><span class="muted">${DIAS[wd]}</span></th>`;
   }).join("");
-  const rows = state.profesionales.map((p) => {
+  const rows = obtenerProfesionalesOrdenados(state.profesionales).map((p) => {
     let total = 0;
     const cells = fechas.map((fecha) => {
       const dia = calendario[p.id]?.[fecha] || {};
@@ -2734,7 +2930,12 @@ function tablaCuadrante(state, calendario, selectedMonth) {
     }).join("");
     return `<tr><td>${escapeHtml(p.nombre || p.identificador)}</td>${cells}<td><strong>${fmt(total)}</strong></td></tr>`;
   }).join("");
-  return `<table class="calendar"><thead><tr><th>Profesional</th>${header}<th>Total</th></tr></thead><tbody>${rows || emptyRow(fechas.length + 2)}</tbody></table>`;
+  const resumen = calcularResumenDiarioTurnos(state, calendario, fechas, state.config.mostrarLibresResumen !== false);
+  const resumenRows = resumen.filas.map((fila) => `<tr class="summary-row"><td><span class="shift-code" style="background:${fila.color};">${escapeHtml(fila.codigo)}</span> ${escapeHtml(fila.nombre || "")}</td>${fechas.map((fecha) => `<td class="summary-count">${fila.conteos[fecha]}</td>`).join("")}<td></td></tr>`).join("");
+  const totalPresencia = `<tr class="summary-total"><td>Total de profesionales programados</td>${fechas.map((fecha) => `<td class="summary-count">${resumen.totalPresencia[fecha]}</td>`).join("")}<td></td></tr>`;
+  const totalActivos = `<tr class="summary-total active-total"><td>Total de profesionales activos</td>${fechas.map((fecha) => `<td class="summary-count">${resumen.totalActivos[fecha]}</td>`).join("")}<td></td></tr>`;
+  const summaryTitle = `<tr class="summary-title"><td colspan="${fechas.length + 2}">Resumen diario de turnos</td></tr>`;
+  return `<table class="calendar"><thead><tr><th>Profesional</th>${header}<th>Total</th></tr></thead><tbody>${rows || emptyRow(fechas.length + 2)}${summaryTitle}${resumenRows}${totalPresencia}${totalActivos}</tbody></table>`;
 }
 
 function renderJornada(state, resumenes) {
@@ -2809,6 +3010,8 @@ function escapeAttr(value) {
 
 
 
+
+
 let state = crearEstadoInicial();
 let activeTab = "inicio";
 let selectedMonth = 0;
@@ -2821,11 +3024,13 @@ const root = document.getElementById("app");
 init();
 
 async function init() {
+  state = migrarEstado(state);
   recalcAndRender();
   try {
     const savedState = await loadState();
     if (savedState) {
-      state = savedState;
+      state = migrarEstado(savedState);
+      await saveState(state);
       runtimeNotice = "";
     }
   } catch (error) {
@@ -2835,8 +3040,10 @@ async function init() {
 }
 
 function recalcAndRender() {
+  state = migrarEstado(state);
   calendario = generarCalendarioAnual(state);
   resumenes = calcularResumenGlobal(state, calendario);
+  globalThis.gestorTurnosDiagnostico = (profesionalId, fechaConsultada) => diagnosticarTurnoProfesional(state, profesionalId, fechaConsultada);
   renderApp(root, state, calendario, resumenes, activeTab, selectedMonth, runtimeNotice);
   bindEvents();
 }
@@ -2872,6 +3079,7 @@ function bindEvents() {
     event.preventDefault();
     const form = event.currentTarget;
     const data = Object.fromEntries(new FormData(form));
+    if (!data.id) delete data.id;
     const errores = validarProfesional(data);
     if (errores.length) return notify(errores.join(" "), true);
     const existing = state.profesionales.find((item) => item.id === data.id);
@@ -2880,6 +3088,7 @@ function bindEvents() {
       ...data,
       porcentajeJornada: Number(data.porcentajeJornada),
       posicionInicial: Number(data.posicionInicial || 0),
+      ordenVisual: Number(data.ordenVisual || existing?.ordenVisual || siguienteOrdenVisual(state.profesionales)),
       activo: true,
     };
     if (existing) Object.assign(existing, payload);
@@ -2890,6 +3099,7 @@ function bindEvents() {
   root.querySelector("#turnoForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.currentTarget));
+    if (!data.id) delete data.id;
     const existing = state.turnos.find((item) => item.id === data.id);
     const payload = {
       ...(existing || turno(data.codigo, data.nombre, data.inicio, data.fin, data.horasComputables, data.grupoCobertura, data.color, data.cruzaMedianoche === "true")),
@@ -2897,6 +3107,8 @@ function bindEvents() {
       codigo: data.codigo.toUpperCase(),
       horasComputables: Number(data.horasComputables),
       cruzaMedianoche: data.cruzaMedianoche === "true",
+      ordenVisual: Number(data.ordenVisual || existing?.ordenVisual || siguienteOrdenVisual(state.turnos)),
+      cuentaComoPresencia: data.cuentaComoPresencia === "true" && data.codigo.toUpperCase() !== "L",
     };
     const errores = validarTurno(payload, state.turnos);
     if (errores.length) return notify(errores.join(" "), true);
@@ -2908,6 +3120,7 @@ function bindEvents() {
   root.querySelector("#cicloForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.currentTarget));
+    if (!data.id) delete data.id;
     try {
       const codigos = parsearSecuencia(data.secuencia).map((codigo) => codigo.toUpperCase());
       const existing = state.ciclos.find((item) => item.id === data.id);
@@ -2922,6 +3135,11 @@ function bindEvents() {
   root.querySelector("#monthSelector")?.addEventListener("change", (event) => {
     selectedMonth = Number(event.target.value);
     recalcAndRender();
+  });
+
+  root.querySelector("#mostrarLibresResumen")?.addEventListener("change", async (event) => {
+    state.config.mostrarLibresResumen = event.target.checked;
+    await persist();
   });
 
   root.querySelector("#importJson")?.addEventListener("change", importarJson);
@@ -2942,6 +3160,14 @@ async function handleAction(event) {
     input.value = `${input.value}${input.value.trim() ? ", " : ""}${event.currentTarget.dataset.code}`;
   }
   if (action === "edit-prof") return fillForm("profesionalForm", state.profesionales.find((item) => item.id === id));
+  if (action === "move-prof-up") {
+    moverProfesional(state.profesionales, id, -1);
+    await persist();
+  }
+  if (action === "move-prof-down") {
+    moverProfesional(state.profesionales, id, 1);
+    await persist();
+  }
   if (action === "edit-turno") return fillForm("turnoForm", state.turnos.find((item) => item.id === id));
   if (action === "edit-ciclo") {
     const ciclo = state.ciclos.find((item) => item.id === id);
@@ -2949,6 +3175,7 @@ async function handleAction(event) {
   }
   if (action === "delete-prof" && confirm("¿Eliminar profesional?")) {
     state.profesionales = state.profesionales.filter((item) => item.id !== id);
+    normalizarOrdenProfesionales(state.profesionales);
     await persist();
   }
   if (action === "delete-turno" && confirm("¿Eliminar o desactivar turno? Si esta en uso se desactivara.")) {
@@ -2973,7 +3200,7 @@ async function handleAction(event) {
   if (action === "reset-data") {
     if (confirm("Primera confirmacion: se sustituiran los datos locales.") && confirm("Segunda confirmacion: ¿restablecer datos iniciales?")) {
       await clearState();
-      state = crearEstadoInicial();
+      state = normalizarEstado(crearEstadoInicial());
       await persist();
     }
   }
@@ -2984,6 +3211,8 @@ function validarProfesional(data) {
   if (!data.nombre) errores.push("El nombre es obligatorio.");
   const porcentaje = Number(data.porcentajeJornada);
   if (porcentaje < 1 || porcentaje > 100) errores.push("El porcentaje debe estar entre 1 y 100.");
+  const ordenVisual = Number(data.ordenVisual || 1);
+  if (!Number.isInteger(ordenVisual) || ordenVisual < 1) errores.push("El orden visual debe ser un entero positivo.");
   if (data.fechaInicio && data.fechaFin && data.fechaFin < data.fechaInicio) errores.push("La fecha final debe ser igual o posterior a la inicial.");
   return errores;
 }
@@ -2994,8 +3223,13 @@ function fillForm(formId, data = {}) {
   form.reset();
   for (const [key, value] of Object.entries(data)) {
     const input = form.elements[key];
-    if (input) input.value = value ?? "";
+    if (input?.type === "checkbox") input.checked = Boolean(value);
+    else if (input) input.value = value ?? "";
   }
+}
+
+function siguienteOrdenVisual(items) {
+  return Math.max(0, ...items.map((item) => Number(item.ordenVisual) || 0)) + 1;
 }
 
 async function importarJson(event) {
@@ -3008,7 +3242,7 @@ async function importarJson(event) {
     const resumen = `${payload.data.profesionales.length} profesionales, ${payload.data.turnos.length} turnos, ${payload.data.ciclos.length} ciclos.`;
     if (!confirm(`Importar copia: ${resumen}\nSe descargara antes una copia del estado actual.`)) return;
     descargarJson(`backup-previo-importacion-${Date.now()}.json`, crearBackup(state));
-    state = payload.data;
+    state = normalizarEstado(payload.data);
     await persist();
   } catch (error) {
     notify(`No se pudo importar: ${error.message}`, true);

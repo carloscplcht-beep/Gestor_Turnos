@@ -1,6 +1,6 @@
 import { daysBetween, isWithinRange, monthDates } from "../utils/dateUtils.js";
 import { buscarTurnoPorCodigo } from "./turnos.js";
-import { turnoParaFecha } from "./ciclos.js";
+import { moduloPositivo, turnoParaFecha } from "./ciclos.js";
 
 export function generarCalendarioAnual(state) {
   const year = Number(state.config.anioActivo);
@@ -32,5 +32,26 @@ export function generarDia(profesional, fecha, state) {
     esNoche: turno.grupoCobertura === "noche",
     grupoCobertura: turno.grupoCobertura,
     turnoId: turno.id,
+  };
+}
+
+export function diagnosticarTurnoProfesional(state, profesionalId, fechaConsultada) {
+  const profesional = state.profesionales.find((item) => item.id === profesionalId);
+  if (!profesional) return null;
+  const ciclo = state.ciclos.find((item) => item.id === profesional.cicloId && item.activo && !item.archivado);
+  const longitudCiclo = ciclo?.codigos?.length || 0;
+  const diasTranscurridos = ciclo && profesional.fechaInicioCiclo ? daysBetween(profesional.fechaInicioCiclo, fechaConsultada) : null;
+  const indiceCalculado = longitudCiclo && diasTranscurridos !== null ? moduloPositivo(diasTranscurridos + Number(profesional.posicionInicial || 0), longitudCiclo) : null;
+  return {
+    profesionalId: profesional.id,
+    nombre: profesional.nombre,
+    ordenVisual: profesional.ordenVisual,
+    cicloId: profesional.cicloId,
+    fechaInicioCiclo: profesional.fechaInicioCiclo,
+    posicionInicial: Number(profesional.posicionInicial || 0),
+    fechaConsultada,
+    diasTranscurridos,
+    indiceCalculado,
+    turnoResultante: indiceCalculado !== null ? ciclo.codigos[indiceCalculado] : null,
   };
 }

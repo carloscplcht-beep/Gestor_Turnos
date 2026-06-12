@@ -1,5 +1,6 @@
 import { monthDates } from "../utils/dateUtils.js";
 import { calcularJornadaObjetivo, requiereAdvertenciaProrrata, roundHours } from "./normativa.js";
+import { obtenerProfesionalesOrdenados } from "./orden.js";
 
 export function calcularResumenProfesional(profesional, calendario, state) {
   const year = Number(state.config.anioActivo);
@@ -45,7 +46,7 @@ export function calcularResumenProfesional(profesional, calendario, state) {
 }
 
 export function calcularResumenGlobal(state, calendario) {
-  return state.profesionales.map((profesional) => calcularResumenProfesional(profesional, calendario, state));
+  return obtenerProfesionalesOrdenados(state.profesionales).map((profesional) => calcularResumenProfesional(profesional, calendario, state));
 }
 
 function contarDesglose(dia, desglose) {

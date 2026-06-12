@@ -293,6 +293,16 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .wide-field { grid-column: span 3; }
 .compact-field { max-width: 260px; }
 label { display: grid; gap: 6px; color: #4b6478; font-size: 12px; font-weight: 760; }
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+}
+.checkbox-label input {
+  width: auto;
+  margin: 0;
+}
 input, select, textarea {
   width: 100%;
   border: 1px solid var(--line);
@@ -352,6 +362,26 @@ tr:last-child td { border-bottom: 0; }
 .today { outline: 2px solid var(--teal); outline-offset: -2px; }
 .shift-cell { text-align: center; font-weight: 820; color: #123047; }
 .shift-cell:hover { filter: saturate(1.08); }
+.summary-toggle { margin-top: 14px; max-width: max-content; }
+.calendar .summary-title td {
+  position: static;
+  background: #e2f0f6 !important;
+  color: #123047;
+  border-top: 2px solid var(--line-strong);
+  font-weight: 820;
+}
+.summary-row td:first-child,
+.summary-total td:first-child {
+  background: #f8fbfd;
+  font-weight: 800;
+}
+.summary-count {
+  text-align: center;
+  font-weight: 760;
+  color: #123047;
+}
+.summary-total td { background: #eef6fa !important; font-weight: 820; }
+.summary-total.active-total td { background: #ecf8f6 !important; }
 
 .muted { color: var(--muted); }
 .badge, .shift-code {

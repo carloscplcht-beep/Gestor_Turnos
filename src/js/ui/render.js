@@ -1,6 +1,8 @@
 import { BRAND_ASSETS } from "../data/brandAssets.js";
 import { MODALIDADES, PERFIL_NORMATIVO_SESCAM_2019 } from "../domain/normativa.js";
 import { resumenCiclo } from "../domain/ciclos.js";
+import { obtenerProfesionalesOrdenados, obtenerTurnosOrdenados } from "../domain/orden.js";
+import { calcularResumenDiarioTurnos } from "../domain/resumenDiario.js";
 import { monthDates, parseDate, weekdayIndex } from "../utils/dateUtils.js";
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -169,6 +171,7 @@ function renderProfesionales(state, resumenes) {
       <form id="profesionalForm" class="form-grid">
         <input type="hidden" name="id">
         <label>Nombre y apellidos<input name="nombre" required></label>
+        <label>Orden visual<input name="ordenVisual" type="number" min="1" step="1" value="${state.profesionales.length + 1}"></label>
         <label>Categoría<input name="categoria" value="Enfermería"></label>
         <label>% jornada<input name="porcentajeJornada" type="number" min="1" max="100" step="0.01" value="100"></label>
         <label>Modalidad<select name="modalidad">${options(MODALIDADES.map((m) => [m.id, m.nombre]))}</select></label>
@@ -188,18 +191,18 @@ function renderProfesionales(state, resumenes) {
 }
 
 function tablaProfesionales(state, resumenes) {
-  const rows = state.profesionales.map((p) => {
+  const rows = obtenerProfesionalesOrdenados(state.profesionales).map((p) => {
     const r = resumenes.find((item) => item.profesionalId === p.id);
     const ciclo = state.ciclos.find((c) => c.id === p.cicloId);
     return `<tr>
-      <td>${escapeHtml(p.identificador)}</td><td>${escapeHtml(p.nombre)}</td><td>${escapeHtml(p.categoria)}</td>
+      <td>${p.ordenVisual ?? ""}</td><td>${escapeHtml(p.identificador)}</td><td>${escapeHtml(p.nombre)}</td><td>${escapeHtml(p.categoria)}</td>
       <td>${escapeHtml(MODALIDADES.find((m) => m.id === p.modalidad)?.nombre || p.modalidad)}</td>
       <td>${p.porcentajeJornada}%</td><td>${escapeHtml(ciclo?.nombre || "Sin ciclo")}</td>
       <td>${r?.noches ?? 0}</td><td>${r?.jornada.objetivo ?? 0}</td><td>${r?.total ?? 0}</td><td>${estadoBadge(r?.estado)}</td>
-      <td><button class="ghost" data-action="edit-prof" data-id="${p.id}">Editar</button><button class="ghost" data-action="delete-prof" data-id="${p.id}">Eliminar</button></td>
+      <td><button class="ghost" data-action="move-prof-up" data-id="${p.id}">Subir</button><button class="ghost" data-action="move-prof-down" data-id="${p.id}">Bajar</button><button class="ghost" data-action="edit-prof" data-id="${p.id}">Editar</button><button class="ghost" data-action="delete-prof" data-id="${p.id}">Eliminar</button></td>
     </tr>`;
   }).join("");
-  return `<table><thead><tr><th>ID</th><th>Nombre</th><th>Categoría</th><th>Modalidad</th><th>%</th><th>Ciclo</th><th>Noches</th><th>Objetivo</th><th>Programadas</th><th>Estado</th><th></th></tr></thead><tbody>${rows || emptyRow(11)}</tbody></table>`;
+  return `<table><thead><tr><th>Orden</th><th>ID</th><th>Nombre</th><th>Categoría</th><th>Modalidad</th><th>%</th><th>Ciclo</th><th>Noches</th><th>Objetivo</th><th>Programadas</th><th>Estado</th><th></th></tr></thead><tbody>${rows || emptyRow(12)}</tbody></table>`;
 }
 
 function renderTurnos(state) {
@@ -218,7 +221,9 @@ function renderTurnos(state) {
         <label>Horas computables<input name="horasComputables" type="number" min="0" step="0.01" required></label>
         <label>Grupo<select name="grupoCobertura">${options([["manana","Mañana"],["tarde","Tarde"],["noche","Noche"],["diurno12","Diurno 12h"],["nocturno12","Nocturno 12h"],["libre","Libre"],["otro","Otro"]])}</select></label>
         <label>Color<input name="color" type="color" value="#6fa8dc"></label>
+        <label>Orden visual<input name="ordenVisual" type="number" min="1" step="1" value="${state.turnos.length + 1}"></label>
         <label>Atraviesa medianoche<select name="cruzaMedianoche"><option value="false">No</option><option value="true">Sí</option></select></label>
+        <label class="checkbox-label"><input name="cuentaComoPresencia" type="checkbox" value="true" checked> Cuenta como presencia</label>
         <div class="actions"><button type="submit">Guardar turno</button><button type="button" class="secondary" data-action="clear-turno-form">Limpiar</button></div>
       </form>
     </div>
@@ -227,8 +232,8 @@ function renderTurnos(state) {
 }
 
 function tablaTurnos(state) {
-  const rows = state.turnos.map((t) => `<tr><td><span class="shift-code" style="background:${t.color};">${escapeHtml(t.codigo)}</span></td><td>${escapeHtml(t.nombre)}</td><td>${t.inicio || "-"}</td><td>${t.fin || "-"}</td><td>${t.horasComputables}</td><td>${escapeHtml(t.grupoCobertura)}</td><td>${t.cruzaMedianoche ? "Sí" : "No"}</td><td>${t.activo ? "Activo" : "Inactivo"}</td><td><button class="ghost" data-action="edit-turno" data-id="${t.id}">Editar</button><button class="ghost" data-action="delete-turno" data-id="${t.id}">Eliminar</button></td></tr>`).join("");
-  return `<table><thead><tr><th>Código</th><th>Nombre</th><th>Inicio</th><th>Fin</th><th>Horas</th><th>Grupo</th><th>Medianoche</th><th>Estado</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  const rows = obtenerTurnosOrdenados(state.turnos).map((t) => `<tr><td>${t.ordenVisual ?? ""}</td><td><span class="shift-code" style="background:${t.color};">${escapeHtml(t.codigo)}</span></td><td>${escapeHtml(t.nombre)}</td><td>${t.inicio || "-"}</td><td>${t.fin || "-"}</td><td>${t.horasComputables}</td><td>${escapeHtml(t.grupoCobertura)}</td><td>${t.cruzaMedianoche ? "Sí" : "No"}</td><td>${t.cuentaComoPresencia ? "Sí" : "No"}</td><td>${t.activo ? "Activo" : "Inactivo"}</td><td><button class="ghost" data-action="edit-turno" data-id="${t.id}">Editar</button><button class="ghost" data-action="delete-turno" data-id="${t.id}">Eliminar</button></td></tr>`).join("");
+  return `<table><thead><tr><th>Orden</th><th>Código</th><th>Nombre</th><th>Inicio</th><th>Fin</th><th>Horas</th><th>Grupo</th><th>Medianoche</th><th>Presencia</th><th>Estado</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function renderCiclos(state) {
@@ -268,6 +273,7 @@ function renderCuadrante(state, calendario, selectedMonth) {
         <p>Vista de planificación por profesional con totales mensuales.</p>
       </div>
       <label class="compact-field">Mes<select id="monthSelector">${MESES.map((m, i) => `<option value="${i}" ${i === selectedMonth ? "selected" : ""}>${m}</option>`).join("")}</select></label>
+      <label class="checkbox-label summary-toggle"><input id="mostrarLibresResumen" type="checkbox" ${state.config.mostrarLibresResumen !== false ? "checked" : ""}> Mostrar libres y ausencias en el resumen</label>
     </div>
     <div class="card">
       <div class="table-wrap">${tablaCuadrante(state, calendario, selectedMonth)}</div>
@@ -284,7 +290,7 @@ function tablaCuadrante(state, calendario, selectedMonth) {
     const wd = weekdayIndex(fecha);
     return `<th class="day-head ${wd === 0 || wd === 6 ? "weekend" : ""} ${fecha === today ? "today" : ""}">${d}<br><span class="muted">${DIAS[wd]}</span></th>`;
   }).join("");
-  const rows = state.profesionales.map((p) => {
+  const rows = obtenerProfesionalesOrdenados(state.profesionales).map((p) => {
     let total = 0;
     const cells = fechas.map((fecha) => {
       const dia = calendario[p.id]?.[fecha] || {};
@@ -295,7 +301,12 @@ function tablaCuadrante(state, calendario, selectedMonth) {
     }).join("");
     return `<tr><td>${escapeHtml(p.nombre || p.identificador)}</td>${cells}<td><strong>${fmt(total)}</strong></td></tr>`;
   }).join("");
-  return `<table class="calendar"><thead><tr><th>Profesional</th>${header}<th>Total</th></tr></thead><tbody>${rows || emptyRow(fechas.length + 2)}</tbody></table>`;
+  const resumen = calcularResumenDiarioTurnos(state, calendario, fechas, state.config.mostrarLibresResumen !== false);
+  const resumenRows = resumen.filas.map((fila) => `<tr class="summary-row"><td><span class="shift-code" style="background:${fila.color};">${escapeHtml(fila.codigo)}</span> ${escapeHtml(fila.nombre || "")}</td>${fechas.map((fecha) => `<td class="summary-count">${fila.conteos[fecha]}</td>`).join("")}<td></td></tr>`).join("");
+  const totalPresencia = `<tr class="summary-total"><td>Total de profesionales programados</td>${fechas.map((fecha) => `<td class="summary-count">${resumen.totalPresencia[fecha]}</td>`).join("")}<td></td></tr>`;
+  const totalActivos = `<tr class="summary-total active-total"><td>Total de profesionales activos</td>${fechas.map((fecha) => `<td class="summary-count">${resumen.totalActivos[fecha]}</td>`).join("")}<td></td></tr>`;
+  const summaryTitle = `<tr class="summary-title"><td colspan="${fechas.length + 2}">Resumen diario de turnos</td></tr>`;
+  return `<table class="calendar"><thead><tr><th>Profesional</th>${header}<th>Total</th></tr></thead><tbody>${rows || emptyRow(fechas.length + 2)}${summaryTitle}${resumenRows}${totalPresencia}${totalActivos}</tbody></table>`;
 }
 
 function renderJornada(state, resumenes) {

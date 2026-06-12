@@ -2,16 +2,16 @@ export const GRUPOS_COBERTURA = ["manana", "tarde", "noche", "diurno12", "noctur
 
 export function crearTurnosIniciales() {
   return [
-    turno("M", "Manana", "08:00", "15:00", 7, "manana", "#f8d66d", false),
-    turno("T", "Tarde", "15:00", "22:00", 7, "tarde", "#f5a85b", false),
-    turno("N", "Noche", "22:00", "08:00", 10, "noche", "#6fa8dc", true),
-    turno("D12", "Diurno 12 h", "08:00", "20:00", 12, "diurno12", "#b7d7f4", false),
-    turno("N12", "Nocturno 12 h", "20:00", "08:00", 12, "noche", "#4b8ccc", true),
-    turno("L", "Libre", "", "", 0, "libre", "#b7dfae", false),
+    turno("M", "Manana", "08:00", "15:00", 7, "manana", "#f8d66d", false, 1, true),
+    turno("T", "Tarde", "15:00", "22:00", 7, "tarde", "#f5a85b", false, 2, true),
+    turno("N", "Noche", "22:00", "08:00", 10, "noche", "#6fa8dc", true, 3, true),
+    turno("D12", "Diurno 12 h", "08:00", "20:00", 12, "diurno12", "#b7d7f4", false, 4, true),
+    turno("N12", "Nocturno 12 h", "20:00", "08:00", 12, "noche", "#4b8ccc", true, 5, true),
+    turno("L", "Libre", "", "", 0, "libre", "#b7dfae", false, 6, false),
   ];
 }
 
-export function turno(codigo, nombre, inicio, fin, horasComputables, grupoCobertura, color, cruzaMedianoche) {
+export function turno(codigo, nombre, inicio, fin, horasComputables, grupoCobertura, color, cruzaMedianoche, ordenVisual = 0, cuentaComoPresencia = Number(horasComputables) > 0) {
   return {
     id: crypto.randomUUID(),
     codigo,
@@ -22,6 +22,8 @@ export function turno(codigo, nombre, inicio, fin, horasComputables, grupoCobert
     grupoCobertura,
     color,
     cruzaMedianoche: Boolean(cruzaMedianoche),
+    ordenVisual: Number(ordenVisual || 0),
+    cuentaComoPresencia: Boolean(cuentaComoPresencia),
     activo: true,
   };
 }

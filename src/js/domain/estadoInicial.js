@@ -11,6 +11,7 @@ export function crearEstadoInicial() {
       anioActivo: new Date().getFullYear(),
       perfilNormativoId: PERFIL_NORMATIVO_SESCAM_2019.id,
       jornadaPersonalizada: 1519,
+      mostrarLibresResumen: true,
     },
     turnos,
     ciclos: [
@@ -40,6 +41,7 @@ export function crearProfesionalBase(state) {
     cicloId: state.ciclos[0]?.id || "",
     posicionInicial: 0,
     fechaInicioCiclo: `${state.config.anioActivo}-01-01`,
+    ordenVisual: index,
     jornadaManual: "",
     activo: true,
   };

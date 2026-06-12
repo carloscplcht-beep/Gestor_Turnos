@@ -1,8 +1,10 @@
 import { crearEstadoInicial, crearProfesionalBase } from "./domain/estadoInicial.js";
 import { turno, validarTurno } from "./domain/turnos.js";
 import { crearCiclo, parsearSecuencia } from "./domain/ciclos.js";
-import { generarCalendarioAnual } from "./domain/generadorCalendario.js";
+import { diagnosticarTurnoProfesional, generarCalendarioAnual } from "./domain/generadorCalendario.js";
 import { calcularResumenGlobal } from "./domain/calculoJornada.js";
+import { migrarEstado, normalizarEstado } from "./domain/migracion.js";
+import { moverProfesional, normalizarOrdenProfesionales } from "./domain/orden.js";
 import { clearState, loadState, saveState } from "./storage/indexedDb.js";
 import { crearBackup, descargarJson, validarBackup } from "./services/backupService.js";
 import { renderApp } from "./ui/render.js";
@@ -19,11 +21,13 @@ const root = document.getElementById("app");
 init();
 
 async function init() {
+  state = migrarEstado(state);
   recalcAndRender();
   try {
     const savedState = await loadState();
     if (savedState) {
-      state = savedState;
+      state = migrarEstado(savedState);
+      await saveState(state);
       runtimeNotice = "";
     }
   } catch (error) {
@@ -33,8 +37,10 @@ async function init() {
 }
 
 function recalcAndRender() {
+  state = migrarEstado(state);
   calendario = generarCalendarioAnual(state);
   resumenes = calcularResumenGlobal(state, calendario);
+  globalThis.gestorTurnosDiagnostico = (profesionalId, fechaConsultada) => diagnosticarTurnoProfesional(state, profesionalId, fechaConsultada);
   renderApp(root, state, calendario, resumenes, activeTab, selectedMonth, runtimeNotice);
   bindEvents();
 }
@@ -70,6 +76,7 @@ function bindEvents() {
     event.preventDefault();
     const form = event.currentTarget;
     const data = Object.fromEntries(new FormData(form));
+    if (!data.id) delete data.id;
     const errores = validarProfesional(data);
     if (errores.length) return notify(errores.join(" "), true);
     const existing = state.profesionales.find((item) => item.id === data.id);
@@ -78,6 +85,7 @@ function bindEvents() {
       ...data,
       porcentajeJornada: Number(data.porcentajeJornada),
       posicionInicial: Number(data.posicionInicial || 0),
+      ordenVisual: Number(data.ordenVisual || existing?.ordenVisual || siguienteOrdenVisual(state.profesionales)),
       activo: true,
     };
     if (existing) Object.assign(existing, payload);
@@ -88,6 +96,7 @@ function bindEvents() {
   root.querySelector("#turnoForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.currentTarget));
+    if (!data.id) delete data.id;
     const existing = state.turnos.find((item) => item.id === data.id);
     const payload = {
       ...(existing || turno(data.codigo, data.nombre, data.inicio, data.fin, data.horasComputables, data.grupoCobertura, data.color, data.cruzaMedianoche === "true")),
@@ -95,6 +104,8 @@ function bindEvents() {
       codigo: data.codigo.toUpperCase(),
       horasComputables: Number(data.horasComputables),
       cruzaMedianoche: data.cruzaMedianoche === "true",
+      ordenVisual: Number(data.ordenVisual || existing?.ordenVisual || siguienteOrdenVisual(state.turnos)),
+      cuentaComoPresencia: data.cuentaComoPresencia === "true" && data.codigo.toUpperCase() !== "L",
     };
     const errores = validarTurno(payload, state.turnos);
     if (errores.length) return notify(errores.join(" "), true);
@@ -106,6 +117,7 @@ function bindEvents() {
   root.querySelector("#cicloForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.currentTarget));
+    if (!data.id) delete data.id;
     try {
       const codigos = parsearSecuencia(data.secuencia).map((codigo) => codigo.toUpperCase());
       const existing = state.ciclos.find((item) => item.id === data.id);
@@ -120,6 +132,11 @@ function bindEvents() {
   root.querySelector("#monthSelector")?.addEventListener("change", (event) => {
     selectedMonth = Number(event.target.value);
     recalcAndRender();
+  });
+
+  root.querySelector("#mostrarLibresResumen")?.addEventListener("change", async (event) => {
+    state.config.mostrarLibresResumen = event.target.checked;
+    await persist();
   });
 
   root.querySelector("#importJson")?.addEventListener("change", importarJson);
@@ -140,6 +157,14 @@ async function handleAction(event) {
     input.value = `${input.value}${input.value.trim() ? ", " : ""}${event.currentTarget.dataset.code}`;
   }
   if (action === "edit-prof") return fillForm("profesionalForm", state.profesionales.find((item) => item.id === id));
+  if (action === "move-prof-up") {
+    moverProfesional(state.profesionales, id, -1);
+    await persist();
+  }
+  if (action === "move-prof-down") {
+    moverProfesional(state.profesionales, id, 1);
+    await persist();
+  }
   if (action === "edit-turno") return fillForm("turnoForm", state.turnos.find((item) => item.id === id));
   if (action === "edit-ciclo") {
     const ciclo = state.ciclos.find((item) => item.id === id);
@@ -147,6 +172,7 @@ async function handleAction(event) {
   }
   if (action === "delete-prof" && confirm("¿Eliminar profesional?")) {
     state.profesionales = state.profesionales.filter((item) => item.id !== id);
+    normalizarOrdenProfesionales(state.profesionales);
     await persist();
   }
   if (action === "delete-turno" && confirm("¿Eliminar o desactivar turno? Si esta en uso se desactivara.")) {
@@ -171,7 +197,7 @@ async function handleAction(event) {
   if (action === "reset-data") {
     if (confirm("Primera confirmacion: se sustituiran los datos locales.") && confirm("Segunda confirmacion: ¿restablecer datos iniciales?")) {
       await clearState();
-      state = crearEstadoInicial();
+      state = normalizarEstado(crearEstadoInicial());
       await persist();
     }
   }
@@ -182,6 +208,8 @@ function validarProfesional(data) {
   if (!data.nombre) errores.push("El nombre es obligatorio.");
   const porcentaje = Number(data.porcentajeJornada);
   if (porcentaje < 1 || porcentaje > 100) errores.push("El porcentaje debe estar entre 1 y 100.");
+  const ordenVisual = Number(data.ordenVisual || 1);
+  if (!Number.isInteger(ordenVisual) || ordenVisual < 1) errores.push("El orden visual debe ser un entero positivo.");
   if (data.fechaInicio && data.fechaFin && data.fechaFin < data.fechaInicio) errores.push("La fecha final debe ser igual o posterior a la inicial.");
   return errores;
 }
@@ -192,8 +220,13 @@ function fillForm(formId, data = {}) {
   form.reset();
   for (const [key, value] of Object.entries(data)) {
     const input = form.elements[key];
-    if (input) input.value = value ?? "";
+    if (input?.type === "checkbox") input.checked = Boolean(value);
+    else if (input) input.value = value ?? "";
   }
+}
+
+function siguienteOrdenVisual(items) {
+  return Math.max(0, ...items.map((item) => Number(item.ordenVisual) || 0)) + 1;
 }
 
 async function importarJson(event) {
@@ -206,7 +239,7 @@ async function importarJson(event) {
     const resumen = `${payload.data.profesionales.length} profesionales, ${payload.data.turnos.length} turnos, ${payload.data.ciclos.length} ciclos.`;
     if (!confirm(`Importar copia: ${resumen}\nSe descargara antes una copia del estado actual.`)) return;
     descargarJson(`backup-previo-importacion-${Date.now()}.json`, crearBackup(state));
-    state = payload.data;
+    state = normalizarEstado(payload.data);
     await persist();
   } catch (error) {
     notify(`No se pudo importar: ${error.message}`, true);
