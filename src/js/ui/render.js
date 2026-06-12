@@ -53,7 +53,7 @@ export function renderApp(root, state, calendario, resumenes, activeTab = "inici
           ${section("ciclos", activeTab, renderCiclos(state))}
           ${section("cuadrante", activeTab, renderCuadrante(state, calendario, selectedMonth))}
           ${section("jornada", activeTab, renderJornada(state, resumenes))}
-          ${section("copias", activeTab, renderCopias())}
+          ${section("copias", activeTab, renderCopias(state))}
         </div>
         <footer class="app-footer">Versión en pruebas · Generada por Carlos Peña Laguna · Licencia Creative Commons BY-NC 4.0</footer>
       </main>
@@ -322,23 +322,40 @@ function renderJornada(state, resumenes) {
   return `<div class="card"><div class="section-heading"><h2>Resumen de jornada</h2><p>Comparación de horas programadas frente al objetivo anual.</p></div><div class="table-wrap"><table><thead><tr><th>Profesional</th><th>Modalidad</th><th>Noches</th><th>Jornada normativa</th><th>%</th><th>Objetivo</th><th>Programadas</th><th>Diferencia</th><th>Estado</th><th>Alertas</th></tr></thead><tbody>${rows || emptyRow(10)}</tbody></table></div></div>`;
 }
 
-function renderCopias() {
-  return `<div class="card privacy-panel full-width">
+function renderCopias(state) {
+  const ultima = state.config.ultimaExportacionJson ? new Date(state.config.ultimaExportacionJson).toLocaleString("es-ES") : "Todavia no se ha exportado ninguna copia.";
+  return `
     <div class="section-heading">
-      <h2>Copias de seguridad</h2>
-      <p>Exportación e importación manual, sin transmisión automática de información.</p>
+      <h2>Copias JSON</h2>
+      <p>Las copias se generan y procesan exclusivamente en este equipo.</p>
     </div>
-    <ul>
-      <li>La exportación genera un archivo JSON descargado por el navegador.</li>
-      <li>La importación lee manualmente el archivo seleccionado por el usuario.</li>
-      <li>Antes de importar, la app descarga una copia del estado actual.</li>
-    </ul>
-    <div class="actions">
-      <button data-action="export-json">Exportar JSON</button>
-      <input class="file-input" id="importJson" type="file" accept="application/json">
-      <button class="danger" data-action="reset-data">Restablecer datos</button>
+    <div class="grid cols-2">
+      <div class="card backup-card">
+        <h3>Exportar</h3>
+        <p class="muted">Descarga un archivo JSON con configuracion, profesionales, turnos, ciclos, ordenes visuales, asignaciones, jornada y tabla normativa.</p>
+        <div class="backup-meta"><strong>Ultima exportacion</strong><span>${escapeHtml(ultima)}</span></div>
+        <div class="actions"><button data-action="export-json">Exportar copia JSON</button></div>
+      </div>
+      <div class="card backup-card">
+        <h3>Importar</h3>
+        <p class="muted">Restaura una copia creada por esta aplicacion para continuar el trabajo en este navegador.</p>
+        <div class="notice notice-warn">La importacion sustituira los datos almacenados actualmente en este navegador.</div>
+        <div class="actions">
+          <button data-action="open-import-json">Importar copia JSON</button>
+          <input class="file-input hidden-input" id="importJson" type="file" accept=".json,application/json">
+        </div>
+      </div>
     </div>
-  </div>`;
+    <div class="card privacy-panel full-width">
+      <h3>Mantenimiento local</h3>
+      <ul>
+        <li>No existe sincronizacion automatica entre ordenadores.</li>
+        <li>Antes de importar se descarga una copia previa de los datos actuales.</li>
+        <li>Guarde los archivos JSON en una ubicacion segura.</li>
+      </ul>
+      <div class="actions"><button class="danger" data-action="reset-data">Restablecer datos</button></div>
+    </div>
+  `;
 }
 
 function metric(label, value, detail = "") {

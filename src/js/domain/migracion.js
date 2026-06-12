@@ -5,6 +5,7 @@ export function migrarEstado(state) {
   state.schemaVersion = Math.max(Number(state.schemaVersion || 1), 2);
   state.config ??= {};
   if (typeof state.config.mostrarLibresResumen !== "boolean") state.config.mostrarLibresResumen = true;
+  if (typeof state.config.ultimaExportacionJson !== "string") state.config.ultimaExportacionJson = "";
   migrarProfesionales(state.profesionales || []);
   migrarTurnos(state.turnos || []);
   return state;

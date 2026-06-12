@@ -5,8 +5,8 @@ import { diagnosticarTurnoProfesional, generarCalendarioAnual } from "./domain/g
 import { calcularResumenGlobal } from "./domain/calculoJornada.js";
 import { migrarEstado, normalizarEstado } from "./domain/migracion.js";
 import { moverProfesional, normalizarOrdenProfesionales } from "./domain/orden.js";
-import { clearState, loadState, saveState } from "./storage/indexedDb.js";
-import { crearBackup, descargarJson, validarBackup } from "./services/backupService.js";
+import { clearState, exportDatabaseSnapshot, loadState, saveState } from "./storage/indexedDb.js";
+import { crearBackup, crearNombreCopia, descargarJson, formatearResumenImportacion, prepararImportacionBackup, sustituirEstadoConRollback } from "./services/backupService.js";
 import { renderApp } from "./ui/render.js";
 
 let state = crearEstadoInicial();
@@ -192,8 +192,9 @@ async function handleAction(event) {
     await persist();
   }
   if (action === "export-json") {
-    descargarJson(`gestor-turnos-${state.config.unidad}-${state.config.anioActivo}.json`, crearBackup(state));
+    await exportarCopiaJson();
   }
+  if (action === "open-import-json") root.querySelector("#importJson")?.click();
   if (action === "reset-data") {
     if (confirm("Primera confirmacion: se sustituiran los datos locales.") && confirm("Segunda confirmacion: ¿restablecer datos iniciales?")) {
       await clearState();
@@ -234,18 +235,46 @@ async function importarJson(event) {
   if (!file) return;
   try {
     const payload = JSON.parse(await file.text());
-    const errores = validarBackup(payload);
+    const { errores, data, resumen } = prepararImportacionBackup(payload);
     if (errores.length) return notify(errores.join(" "), true);
-    const resumen = `${payload.data.profesionales.length} profesionales, ${payload.data.turnos.length} turnos, ${payload.data.ciclos.length} ciclos.`;
-    if (!confirm(`Importar copia: ${resumen}\nSe descargara antes una copia del estado actual.`)) return;
-    descargarJson(`backup-previo-importacion-${Date.now()}.json`, crearBackup(state));
-    state = normalizarEstado(payload.data);
-    await persist();
+    if (!confirm(`${formatearResumenImportacion(resumen)}\n\nAntes de importar se descargara una copia de los datos actuales.\n\n¿Sustituir todos los datos actuales?`)) return;
+    const copiaActual = await crearCopiaActual();
+    descargarJson(crearNombreCopia("gestor-turnos_copia-antes-de-importar"), copiaActual);
+    const estadoAnterior = structuredClone(state);
+    const estadoNuevo = normalizarEstado(data);
+    state = await sustituirEstadoConRollback({
+      estadoActual: estadoAnterior,
+      estadoNuevo,
+      guardarEstado: saveState,
+    });
+    runtimeNotice = "Copia importada correctamente. Se han restaurado todos los datos.";
+    recalcAndRender();
+    notify("Copia importada correctamente. Se han restaurado todos los datos.");
   } catch (error) {
     notify(`No se pudo importar: ${error.message}`, true);
   } finally {
     event.target.value = "";
   }
+}
+
+async function exportarCopiaJson() {
+  try {
+    const exportedAt = new Date().toISOString();
+    state.config.ultimaExportacionJson = exportedAt;
+    await saveState(state);
+    const snapshot = await exportDatabaseSnapshot(state);
+    const backup = crearBackup(state, snapshot, exportedAt);
+    descargarJson(crearNombreCopia("gestor-turnos_copia", new Date(exportedAt)), backup);
+    runtimeNotice = "Copia JSON exportada correctamente.";
+    recalcAndRender();
+  } catch (error) {
+    notify(`No se pudo exportar la copia JSON: ${error.message}`, true);
+  }
+}
+
+async function crearCopiaActual() {
+  const snapshot = await exportDatabaseSnapshot(state);
+  return crearBackup(state, snapshot);
 }
 
 function notify(message, isError = false) {

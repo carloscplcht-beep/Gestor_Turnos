@@ -5,10 +5,11 @@ import { crearTurnosIniciales, turno } from "../src/js/domain/turnos.js";
 import { diagnosticarTurnoProfesional, generarCalendarioAnual } from "../src/js/domain/generadorCalendario.js";
 import { calcularResumenGlobal } from "../src/js/domain/calculoJornada.js";
 import { calcularJornadaObjetivo, obtenerFilaPonderacion } from "../src/js/domain/normativa.js";
+import { PERFIL_NORMATIVO_SESCAM_2019 } from "../src/js/data/normativaSescam2019.generated.js";
 import { migrarEstado, normalizarEstado } from "../src/js/domain/migracion.js";
 import { moverProfesional, obtenerProfesionalesOrdenados } from "../src/js/domain/orden.js";
 import { calcularResumenDiarioTurnos } from "../src/js/domain/resumenDiario.js";
-import { crearBackup, validarBackup } from "../src/js/services/backupService.js";
+import { crearBackup, prepararImportacionBackup, sustituirEstadoConRollback, validarBackup } from "../src/js/services/backupService.js";
 
 globalThis.crypto ??= { randomUUID: () => `test-${Math.random()}` };
 
@@ -158,17 +159,92 @@ test("persistencia logica: normaliza importacion sin perder orden visual", () =>
 });
 
 test("copias JSON: exportacion e importacion conservan nuevos campos", () => {
-  const state = baseState();
-  state.config.mostrarLibresResumen = false;
-  state.profesionales = [profesional("Ana", "", "2026-01-01", "2026-12-31", 0, 100, "diurno", { ordenVisual: 4 })];
-  state.turnos = [turno("X", "Extra", "10:00", "12:00", 2, "otro", "#dddddd", false, 7, true)];
+  const state = estadoCompletoCopias();
   const backup = crearBackup(state);
   assert.deepEqual(validarBackup(backup), []);
-  const importado = migrarEstado(JSON.parse(JSON.stringify(backup.data)));
+  const { errores, data } = prepararImportacionBackup(JSON.parse(JSON.stringify(backup)));
+  assert.deepEqual(errores, []);
+  const importado = migrarEstado(data);
   assert.equal(importado.config.mostrarLibresResumen, false);
-  assert.equal(importado.profesionales[0].ordenVisual, 4);
-  assert.equal(importado.turnos[0].ordenVisual, 7);
-  assert.equal(importado.turnos[0].cuentaComoPresencia, true);
+  assert.equal(importado.profesionales[0].ordenVisual, 1);
+  assert.equal(importado.profesionales[0].fechaInicioCiclo, "2026-01-01");
+  assert.equal(importado.profesionales[3].posicionInicial, 3);
+  assert.equal(importado.turnos.find((item) => item.codigo === "M").ordenVisual, 1);
+  assert.equal(importado.turnos.find((item) => item.codigo === "L").cuentaComoPresencia, false);
+  assert.equal(backup.perfilNormativo.tablaPonderacion.length, PERFIL_NORMATIVO_SESCAM_2019.tablaPonderacion.length);
+  assert.equal(backup.indexedDb.stores.appState[0].key, "current");
+});
+
+test("copias JSON: rechaza corrupto, schema ausente, version incompatible y copia vacia", () => {
+  assert.throws(() => JSON.parse("{ copia rota"));
+  assert.ok(validarBackup({ application: "Gestor Local de Turnos de Enfermería", data: {} }).some((error) => error.includes("schemaVersion")));
+  assert.ok(validarBackup({ application: "Gestor Local de Turnos de Enfermería", schemaVersion: 99, exportedAt: new Date().toISOString(), data: {} }).some((error) => error.includes("incompatible")));
+  assert.ok(validarBackup({}).length > 0);
+});
+
+test("copias JSON: acepta copia legacy compatible y aplica migracion", () => {
+  const legacyState = baseState({
+    config: { anioActivo: 2026, jornadaPersonalizada: 1519 },
+    profesionales: [profesional("Legacy", "", "2026-01-01", "2026-12-31", 0, 100, "diurno", { ordenVisual: undefined })],
+  });
+  const legacyBackup = {
+    schemaVersion: 1,
+    app: "gestor-turnos-enfermeria",
+    exportedAt: "2026-06-12T12:00:00.000Z",
+    perfilNormativo: PERFIL_NORMATIVO_SESCAM_2019,
+    data: legacyState,
+  };
+  const preparado = prepararImportacionBackup(JSON.parse(JSON.stringify(legacyBackup)));
+  assert.deepEqual(preparado.errores, []);
+  assert.equal(preparado.data.schemaVersion, 2);
+  assert.equal(preparado.data.config.mostrarLibresResumen, true);
+  assert.equal(preparado.data.profesionales[0].ordenVisual, 1);
+});
+
+test("copias JSON: valida duplicados, relaciones y fechas", () => {
+  const state = estadoCompletoCopias();
+  const backupDuplicado = crearBackup({ ...state, profesionales: [state.profesionales[0], { ...state.profesionales[1], id: state.profesionales[0].id }] });
+  assert.ok(validarBackup(backupDuplicado).some((error) => error.includes("duplicado")));
+  const backupRelacion = crearBackup({ ...state, profesionales: [{ ...state.profesionales[0], cicloId: "ciclo-inexistente" }] });
+  assert.ok(validarBackup(backupRelacion).some((error) => error.includes("ciclo inexistente")));
+  const backupFecha = crearBackup({ ...state, profesionales: [{ ...state.profesionales[0], fechaInicio: "2026-02-01", fechaFin: "2026-01-01" }] });
+  assert.ok(validarBackup(backupFecha).some((error) => error.includes("fechas invertidas")));
+});
+
+test("copias JSON: sustituye completamente y el cuadrante coincide tras importar", () => {
+  const original = estadoCompletoCopias();
+  const backup = crearBackup(original);
+  const destinoLimpio = baseState({ profesionales: [], ciclos: [], turnos: crearTurnosIniciales() });
+  const { data } = prepararImportacionBackup(backup);
+  const importado = normalizarEstado(data);
+  assert.notDeepEqual(destinoLimpio.profesionales, importado.profesionales);
+  assert.deepEqual(obtenerProfesionalesOrdenados(importado.profesionales).map((p) => p.nombre), obtenerProfesionalesOrdenados(original.profesionales).map((p) => p.nombre));
+  assert.deepEqual(generarCalendarioAnual(importado), generarCalendarioAnual(original));
+  assert.deepEqual(calcularResumenGlobal(importado, generarCalendarioAnual(importado)), calcularResumenGlobal(original, generarCalendarioAnual(original)));
+  const fechas = ["2026-01-01", "2026-01-02", "2026-01-03"];
+  assert.deepEqual(
+    calcularResumenDiarioTurnos(importado, generarCalendarioAnual(importado), fechas, true),
+    calcularResumenDiarioTurnos(original, generarCalendarioAnual(original), fechas, true),
+  );
+});
+
+await testAsync("copias JSON: rollback ante error mantiene datos anteriores", async () => {
+  const actual = estadoCompletoCopias();
+  const nuevo = baseState({ config: { anioActivo: 2027, jornadaPersonalizada: 1519, unidad: "Destino fallido" } });
+  const escrituras = [];
+  await assert.rejects(
+    () => sustituirEstadoConRollback({
+      estadoActual: actual,
+      estadoNuevo: nuevo,
+      guardarEstado: async (estado) => {
+        escrituras.push(estado);
+        if (estado === nuevo) throw new Error("fallo simulado");
+      },
+    }),
+    /Se mantienen los datos anteriores/,
+  );
+  assert.equal(escrituras[0], nuevo);
+  assert.equal(escrituras[1], actual);
 });
 
 test("jornada normativa: valores fijos", () => {
@@ -198,12 +274,35 @@ test("jornada manual conserva calculo automatico", () => {
 
 function baseState(overrides = {}) {
   return {
-    config: { anioActivo: 2026, jornadaPersonalizada: 1519 },
+    config: { unidad: "Hospital de pruebas", anioActivo: 2026, jornadaPersonalizada: 1519, mostrarLibresResumen: true, ultimaExportacionJson: "" },
     turnos,
     ciclos: [],
     profesionales: [],
     ...overrides,
   };
+}
+
+function estadoCompletoCopias() {
+  const turnosCopia = crearTurnosIniciales();
+  const ciclo = crearCiclo("Rueda completa", ["M", "M", "T", "T", "N", "N", "L", "L"], turnosCopia);
+  const state = baseState({ turnos: turnosCopia, ciclos: [ciclo] });
+  state.config.mostrarLibresResumen = false;
+  state.profesionales = Array.from({ length: 8 }, (_, index) => profesional(
+    `Profesional ${index + 1}`,
+    ciclo.id,
+    "2026-01-01",
+    "2026-12-31",
+    index,
+    100,
+    "rotatorio",
+    {
+      id: `prof-${index + 1}`,
+      identificador: `ID-${index + 1}`,
+      ordenVisual: index + 1,
+      fechaInicioCiclo: `2026-01-${String(index + 1).padStart(2, "0")}`,
+    },
+  ));
+  return state;
 }
 
 function profesional(nombre, cicloId, fechaInicio, fechaFin, posicionInicial, porcentajeJornada, modalidad, overrides = {}) {
@@ -229,6 +328,16 @@ function profesional(nombre, cicloId, fechaInicio, fechaFin, posicionInicial, po
 function test(name, fn) {
   try {
     fn();
+    console.log(`OK ${name}`);
+  } catch (error) {
+    console.error(`FAIL ${name}`);
+    throw error;
+  }
+}
+
+async function testAsync(name, fn) {
+  try {
+    await fn();
     console.log(`OK ${name}`);
   } catch (error) {
     console.error(`FAIL ${name}`);

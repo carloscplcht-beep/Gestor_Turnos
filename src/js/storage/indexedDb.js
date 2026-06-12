@@ -27,6 +27,23 @@ export async function saveState(state) {
   return tx(db, "readwrite", (store) => store.put(payload, STATE_KEY));
 }
 
+export async function exportDatabaseSnapshot(stateFallback = null) {
+  const db = await openDb();
+  const stores = {};
+  for (const storeName of Array.from(db.objectStoreNames)) {
+    stores[storeName] = await readStore(db, storeName);
+  }
+  if (stateFallback && !stores[STORE]?.some((entry) => entry.key === STATE_KEY)) {
+    stores[STORE] = [{ key: STATE_KEY, value: structuredClone(stateFallback) }];
+  }
+  return {
+    databaseName: DB_NAME,
+    databaseVersion: DB_VERSION,
+    exportedStores: Object.keys(stores),
+    stores,
+  };
+}
+
 export async function clearState() {
   const db = await openDb();
   return tx(db, "readwrite", (store) => store.delete(STATE_KEY));
@@ -41,4 +58,21 @@ function tx(db, mode, operation) {
     request.onerror = () => reject(request.error);
     transaction.onerror = () => reject(transaction.error);
   });
+}
+
+function requestToPromise(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function readStore(db, storeName) {
+  const transaction = db.transaction(storeName, "readonly");
+  const store = transaction.objectStore(storeName);
+  const [keys, values] = await Promise.all([
+    requestToPromise(store.getAllKeys()),
+    requestToPromise(store.getAll()),
+  ]);
+  return keys.map((key, index) => ({ key, value: values[index] }));
 }

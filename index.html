@@ -425,6 +425,23 @@ tr:last-child td { border-bottom: 0; }
 }
 .notice-warn { border-left-color: var(--warn); background: #fff4df; color: #74420a; margin-bottom: 14px; }
 .file-input { padding: 8px; background: #fff; }
+.hidden-input { display: none; }
+.backup-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+.backup-card h3 { margin-bottom: 0; }
+.backup-meta {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-soft);
+}
+.backup-meta strong { color: #344f68; font-size: 12px; }
+.backup-meta span { color: var(--muted); }
 
 .app-footer {
   padding: 18px 24px 24px;
@@ -2425,6 +2442,7 @@ function crearEstadoInicial() {
       perfilNormativoId: PERFIL_NORMATIVO_SESCAM_2019.id,
       jornadaPersonalizada: 1519,
       mostrarLibresResumen: true,
+      ultimaExportacionJson: "",
     },
     turnos,
     ciclos: [
@@ -2468,6 +2486,7 @@ function migrarEstado(state) {
   state.schemaVersion = Math.max(Number(state.schemaVersion || 1), 2);
   state.config ??= {};
   if (typeof state.config.mostrarLibresResumen !== "boolean") state.config.mostrarLibresResumen = true;
+  if (typeof state.config.ultimaExportacionJson !== "string") state.config.ultimaExportacionJson = "";
   migrarProfesionales(state.profesionales || []);
   migrarTurnos(state.turnos || []);
   return state;
@@ -2578,6 +2597,23 @@ async function saveState(state) {
   return tx(db, "readwrite", (store) => store.put(payload, STATE_KEY));
 }
 
+async function exportDatabaseSnapshot(stateFallback = null) {
+  const db = await openDb();
+  const stores = {};
+  for (const storeName of Array.from(db.objectStoreNames)) {
+    stores[storeName] = await readStore(db, storeName);
+  }
+  if (stateFallback && !stores[STORE]?.some((entry) => entry.key === STATE_KEY)) {
+    stores[STORE] = [{ key: STATE_KEY, value: structuredClone(stateFallback) }];
+  }
+  return {
+    databaseName: DB_NAME,
+    databaseVersion: DB_VERSION,
+    exportedStores: Object.keys(stores),
+    stores,
+  };
+}
+
 async function clearState() {
   const db = await openDb();
   return tx(db, "readwrite", (store) => store.delete(STATE_KEY));
@@ -2594,26 +2630,146 @@ function tx(db, mode, operation) {
   });
 }
 
+function requestToPromise(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function readStore(db, storeName) {
+  const transaction = db.transaction(storeName, "readonly");
+  const store = transaction.objectStore(storeName);
+  const [keys, values] = await Promise.all([
+    requestToPromise(store.getAllKeys()),
+    requestToPromise(store.getAll()),
+  ]);
+  return keys.map((key, index) => ({ key, value: values[index] }));
+}
+
 
 // ---- src/js/services/backupService.js ----
 
-function crearBackup(state) {
+
+const BACKUP_APPLICATION_NAME = "Gestor Local de Turnos de Enfermería";
+const BACKUP_LEGACY_APP_ID = "gestor-turnos-enfermeria";
+const BACKUP_SCHEMA_VERSION = 1;
+const APP_VERSION = "0.1";
+
+function crearBackup(state, databaseSnapshot = null, exportedAt = new Date().toISOString()) {
+  const data = structuredClone(state);
+  const indexedDb = databaseSnapshot || crearSnapshotDesdeEstado(data);
   return {
-    schemaVersion: 1,
-    app: "gestor-turnos-enfermeria",
-    exportedAt: new Date().toISOString(),
-    perfilNormativo: PERFIL_NORMATIVO_SESCAM_2019,
-    data: state,
+    application: BACKUP_APPLICATION_NAME,
+    app: BACKUP_LEGACY_APP_ID,
+    schemaVersion: BACKUP_SCHEMA_VERSION,
+    appVersion: APP_VERSION,
+    exportedAt,
+    data,
+    indexedDb,
+    perfilNormativo: structuredClone(PERFIL_NORMATIVO_SESCAM_2019),
   };
+}
+
+function crearSnapshotDesdeEstado(state) {
+  return {
+    databaseName: "gestor_turnos_enfermeria",
+    databaseVersion: 1,
+    exportedStores: ["appState"],
+    stores: {
+      appState: [{ key: "current", value: structuredClone(state) }],
+    },
+  };
+}
+
+function crearNombreCopia(prefijo = "gestor-turnos_copia", date = new Date()) {
+  const pad = (value) => String(value).padStart(2, "0");
+  const yyyy = date.getFullYear();
+  const mm = pad(date.getMonth() + 1);
+  const dd = pad(date.getDate());
+  const hh = pad(date.getHours());
+  const min = pad(date.getMinutes());
+  return `${prefijo}_${yyyy}-${mm}-${dd}_${hh}${min}.json`;
 }
 
 function validarBackup(payload) {
   const errores = [];
-  if (!payload || typeof payload !== "object") errores.push("El archivo no contiene JSON valido.");
-  if (payload?.schemaVersion !== 1) errores.push("Version de esquema no compatible.");
-  if (payload?.app !== "gestor-turnos-enfermeria") errores.push("La copia no corresponde a esta aplicacion.");
-  if (!payload?.data?.config || !Array.isArray(payload?.data?.profesionales)) errores.push("La estructura de datos esta incompleta.");
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return ["El archivo no contiene una copia JSON valida."];
+
+  if (!("schemaVersion" in payload)) errores.push("Falta schemaVersion en la copia.");
+  else if (Number(payload.schemaVersion) !== BACKUP_SCHEMA_VERSION) errores.push(`Version de esquema incompatible. Esperada: ${BACKUP_SCHEMA_VERSION}. Encontrada: ${payload.schemaVersion}.`);
+
+  const application = payload.application || payload.app;
+  if (application !== BACKUP_APPLICATION_NAME && application !== BACKUP_LEGACY_APP_ID) errores.push("La copia no corresponde a esta aplicacion.");
+  if (!payload.exportedAt || Number.isNaN(Date.parse(payload.exportedAt))) errores.push("La fecha de exportacion no es valida.");
+  if (!payload.data || typeof payload.data !== "object" || Array.isArray(payload.data)) errores.push("La estructura de datos esta incompleta.");
+  if (errores.length) return errores;
+
+  validarEstado(payload.data, errores);
+  validarNormativa(payload.perfilNormativo, errores);
+  validarSnapshotIndexedDb(payload, errores);
   return errores;
+}
+
+function prepararImportacionBackup(payload) {
+  const errores = validarBackup(payload);
+  if (errores.length) return { errores, data: null, resumen: null };
+  const data = migrarEstado(structuredClone(payload.data));
+  return { errores: [], data, resumen: resumirBackup({ ...payload, data }) };
+}
+
+function resumirBackup(payload) {
+  const data = payload?.data || {};
+  const config = data.config || {};
+  const unidad = config.unidad || config.hospital || "No indicada";
+  const anios = new Set();
+  if (config.anioActivo) anios.add(String(config.anioActivo));
+  for (const profesional of data.profesionales || []) {
+    if (profesional.fechaInicio) anios.add(String(profesional.fechaInicio).slice(0, 4));
+    if (profesional.fechaFin) anios.add(String(profesional.fechaFin).slice(0, 4));
+  }
+  return {
+    exportedAt: payload.exportedAt,
+    schemaVersion: payload.schemaVersion,
+    appVersion: payload.appVersion || "desconocida",
+    unidades: unidad ? 1 : 0,
+    unidadPrincipal: unidad,
+    profesionales: data.profesionales?.length || 0,
+    turnos: data.turnos?.length || 0,
+    ciclos: data.ciclos?.length || 0,
+    anios: [...anios].filter(Boolean).sort(),
+  };
+}
+
+function formatearResumenImportacion(resumen) {
+  const fecha = resumen.exportedAt ? new Date(resumen.exportedAt).toLocaleString("es-ES") : "No indicada";
+  return [
+    `Copia creada: ${fecha}`,
+    `Version del esquema: ${resumen.schemaVersion}`,
+    `Version de la aplicacion: ${resumen.appVersion}`,
+    `Unidades: ${resumen.unidades}`,
+    `Unidad: ${resumen.unidadPrincipal}`,
+    `Profesionales: ${resumen.profesionales}`,
+    `Turnos: ${resumen.turnos}`,
+    `Ciclos: ${resumen.ciclos}`,
+    `Año activo: ${resumen.anios.join(", ") || "No indicado"}`,
+    "",
+    "La importacion sustituira los datos almacenados actualmente en este navegador.",
+  ].join("\n");
+}
+
+async function sustituirEstadoConRollback({ estadoActual, estadoNuevo, guardarEstado }) {
+  try {
+    await guardarEstado(estadoNuevo);
+    return estadoNuevo;
+  } catch (error) {
+    try {
+      await guardarEstado(estadoActual);
+    } catch {
+      // La escritura original fallo antes de confirmar el nuevo estado; se mantiene el error principal.
+    }
+    throw new Error(`No se pudo importar la copia. Se mantienen los datos anteriores. ${error.message}`);
+  }
 }
 
 function descargarJson(nombre, data) {
@@ -2624,6 +2780,87 @@ function descargarJson(nombre, data) {
   link.download = nombre;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function validarEstado(data, errores) {
+  if (!data.config || typeof data.config !== "object") errores.push("Falta la configuracion general.");
+  if (!Array.isArray(data.profesionales)) errores.push("La lista de profesionales no es valida.");
+  if (!Array.isArray(data.turnos)) errores.push("La lista de turnos no es valida.");
+  if (!Array.isArray(data.ciclos)) errores.push("La lista de ciclos no es valida.");
+  if (errores.length) return;
+
+  if (!Number.isFinite(Number(data.config.anioActivo))) errores.push("El ano activo no es valido.");
+  validarDuplicados(data.profesionales, "profesionales", errores);
+  validarDuplicados(data.turnos, "turnos", errores);
+  validarDuplicados(data.ciclos, "ciclos", errores);
+
+  const codigosTurno = new Set();
+  for (const turno of data.turnos) {
+    if (!turno.id) errores.push("Hay un turno sin identificador.");
+    if (!turno.codigo) errores.push("Hay un turno sin codigo.");
+    const codigo = String(turno.codigo || "").toUpperCase();
+    if (codigosTurno.has(codigo)) errores.push(`Codigo de turno duplicado: ${codigo}.`);
+    codigosTurno.add(codigo);
+    if (!/^#[0-9a-f]{6}$/i.test(String(turno.color || ""))) errores.push(`Color no valido en turno ${codigo || turno.id}.`);
+    if (!Number.isFinite(Number(turno.horasComputables)) || Number(turno.horasComputables) < 0) errores.push(`Horas no validas en turno ${codigo || turno.id}.`);
+    if ("cuentaComoPresencia" in turno && typeof turno.cuentaComoPresencia !== "boolean") errores.push(`El turno ${codigo || turno.id} no define correctamente cuentaComoPresencia.`);
+  }
+
+  const ciclos = new Set(data.ciclos.map((ciclo) => ciclo.id));
+  for (const ciclo of data.ciclos) {
+    if (!ciclo.id) errores.push("Hay un ciclo sin identificador.");
+    if (!Array.isArray(ciclo.codigos) || !ciclo.codigos.length) errores.push(`El ciclo ${ciclo.nombre || ciclo.id} no tiene secuencia.`);
+    for (const codigo of ciclo.codigos || []) {
+      if (!codigosTurno.has(String(codigo).toUpperCase())) errores.push(`El ciclo ${ciclo.nombre || ciclo.id} referencia el turno inexistente ${codigo}.`);
+    }
+  }
+
+  for (const profesional of data.profesionales) {
+    if (!profesional.id) errores.push("Hay un profesional sin identificador.");
+    if (!profesional.nombre && !profesional.identificador) errores.push(`El profesional ${profesional.id || "sin id"} no tiene nombre ni identificador.`);
+    if (profesional.cicloId && !ciclos.has(profesional.cicloId)) errores.push(`El profesional ${profesional.nombre || profesional.id} referencia un ciclo inexistente.`);
+    validarFecha(profesional.fechaInicio, `Fecha de inicio no valida en ${profesional.nombre || profesional.id}.`, errores);
+    validarFecha(profesional.fechaFin, `Fecha de fin no valida en ${profesional.nombre || profesional.id}.`, errores);
+    validarFecha(profesional.fechaInicioCiclo, `Fecha de inicio de ciclo no valida en ${profesional.nombre || profesional.id}.`, errores);
+    if (profesional.fechaInicio && profesional.fechaFin && profesional.fechaFin < profesional.fechaInicio) errores.push(`Contrato con fechas invertidas en ${profesional.nombre || profesional.id}.`);
+    if (!Number.isInteger(Number(profesional.posicionInicial))) errores.push(`Posicion inicial no valida en ${profesional.nombre || profesional.id}.`);
+    if ("ordenVisual" in profesional && !Number.isFinite(Number(profesional.ordenVisual))) errores.push(`Orden visual no valido en ${profesional.nombre || profesional.id}.`);
+  }
+}
+
+function validarDuplicados(items, nombre, errores) {
+  const ids = new Set();
+  for (const item of items) {
+    if (!item.id) continue;
+    if (ids.has(item.id)) errores.push(`Identificador duplicado en ${nombre}: ${item.id}.`);
+    ids.add(item.id);
+  }
+}
+
+function validarFecha(value, message, errores) {
+  if (!value) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value)) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) errores.push(message);
+}
+
+function validarNormativa(perfil, errores) {
+  if (!perfil || typeof perfil !== "object") {
+    errores.push("La copia no incluye el perfil normativo.");
+    return;
+  }
+  if (!Array.isArray(perfil.tablaPonderacion) || perfil.tablaPonderacion.length < 146) errores.push("La tabla normativa de ponderacion esta incompleta.");
+  const noches = new Set((perfil.tablaPonderacion || []).map((fila) => Number(fila.numero_noches)));
+  if (!noches.has(0) || !noches.has(145)) errores.push("La tabla normativa debe cubrir de 0 a 145 noches.");
+}
+
+function validarSnapshotIndexedDb(payload, errores) {
+  const snapshot = payload.indexedDb;
+  if (!snapshot || typeof snapshot !== "object") {
+    if (payload.app === BACKUP_LEGACY_APP_ID && !payload.application) return;
+    errores.push("La copia no incluye la instantanea de IndexedDB.");
+    return;
+  }
+  if (!snapshot.stores || typeof snapshot.stores !== "object") errores.push("La instantanea de IndexedDB no contiene almacenes.");
+  if (!snapshot.stores?.appState?.some((entry) => entry.key === "current")) errores.push("La instantanea no incluye el almacen appState/current.");
 }
 
 
@@ -2682,7 +2919,7 @@ function renderApp(root, state, calendario, resumenes, activeTab = "inicio", sel
           ${section("ciclos", activeTab, renderCiclos(state))}
           ${section("cuadrante", activeTab, renderCuadrante(state, calendario, selectedMonth))}
           ${section("jornada", activeTab, renderJornada(state, resumenes))}
-          ${section("copias", activeTab, renderCopias())}
+          ${section("copias", activeTab, renderCopias(state))}
         </div>
         <footer class="app-footer">Versión en pruebas · Generada por Carlos Peña Laguna · Licencia Creative Commons BY-NC 4.0</footer>
       </main>
@@ -2951,23 +3188,40 @@ function renderJornada(state, resumenes) {
   return `<div class="card"><div class="section-heading"><h2>Resumen de jornada</h2><p>Comparación de horas programadas frente al objetivo anual.</p></div><div class="table-wrap"><table><thead><tr><th>Profesional</th><th>Modalidad</th><th>Noches</th><th>Jornada normativa</th><th>%</th><th>Objetivo</th><th>Programadas</th><th>Diferencia</th><th>Estado</th><th>Alertas</th></tr></thead><tbody>${rows || emptyRow(10)}</tbody></table></div></div>`;
 }
 
-function renderCopias() {
-  return `<div class="card privacy-panel full-width">
+function renderCopias(state) {
+  const ultima = state.config.ultimaExportacionJson ? new Date(state.config.ultimaExportacionJson).toLocaleString("es-ES") : "Todavia no se ha exportado ninguna copia.";
+  return `
     <div class="section-heading">
-      <h2>Copias de seguridad</h2>
-      <p>Exportación e importación manual, sin transmisión automática de información.</p>
+      <h2>Copias JSON</h2>
+      <p>Las copias se generan y procesan exclusivamente en este equipo.</p>
     </div>
-    <ul>
-      <li>La exportación genera un archivo JSON descargado por el navegador.</li>
-      <li>La importación lee manualmente el archivo seleccionado por el usuario.</li>
-      <li>Antes de importar, la app descarga una copia del estado actual.</li>
-    </ul>
-    <div class="actions">
-      <button data-action="export-json">Exportar JSON</button>
-      <input class="file-input" id="importJson" type="file" accept="application/json">
-      <button class="danger" data-action="reset-data">Restablecer datos</button>
+    <div class="grid cols-2">
+      <div class="card backup-card">
+        <h3>Exportar</h3>
+        <p class="muted">Descarga un archivo JSON con configuracion, profesionales, turnos, ciclos, ordenes visuales, asignaciones, jornada y tabla normativa.</p>
+        <div class="backup-meta"><strong>Ultima exportacion</strong><span>${escapeHtml(ultima)}</span></div>
+        <div class="actions"><button data-action="export-json">Exportar copia JSON</button></div>
+      </div>
+      <div class="card backup-card">
+        <h3>Importar</h3>
+        <p class="muted">Restaura una copia creada por esta aplicacion para continuar el trabajo en este navegador.</p>
+        <div class="notice notice-warn">La importacion sustituira los datos almacenados actualmente en este navegador.</div>
+        <div class="actions">
+          <button data-action="open-import-json">Importar copia JSON</button>
+          <input class="file-input hidden-input" id="importJson" type="file" accept=".json,application/json">
+        </div>
+      </div>
     </div>
-  </div>`;
+    <div class="card privacy-panel full-width">
+      <h3>Mantenimiento local</h3>
+      <ul>
+        <li>No existe sincronizacion automatica entre ordenadores.</li>
+        <li>Antes de importar se descarga una copia previa de los datos actuales.</li>
+        <li>Guarde los archivos JSON en una ubicacion segura.</li>
+      </ul>
+      <div class="actions"><button class="danger" data-action="reset-data">Restablecer datos</button></div>
+    </div>
+  `;
 }
 
 function metric(label, value, detail = "") {
@@ -3195,8 +3449,9 @@ async function handleAction(event) {
     await persist();
   }
   if (action === "export-json") {
-    descargarJson(`gestor-turnos-${state.config.unidad}-${state.config.anioActivo}.json`, crearBackup(state));
+    await exportarCopiaJson();
   }
+  if (action === "open-import-json") root.querySelector("#importJson")?.click();
   if (action === "reset-data") {
     if (confirm("Primera confirmacion: se sustituiran los datos locales.") && confirm("Segunda confirmacion: ¿restablecer datos iniciales?")) {
       await clearState();
@@ -3237,18 +3492,46 @@ async function importarJson(event) {
   if (!file) return;
   try {
     const payload = JSON.parse(await file.text());
-    const errores = validarBackup(payload);
+    const { errores, data, resumen } = prepararImportacionBackup(payload);
     if (errores.length) return notify(errores.join(" "), true);
-    const resumen = `${payload.data.profesionales.length} profesionales, ${payload.data.turnos.length} turnos, ${payload.data.ciclos.length} ciclos.`;
-    if (!confirm(`Importar copia: ${resumen}\nSe descargara antes una copia del estado actual.`)) return;
-    descargarJson(`backup-previo-importacion-${Date.now()}.json`, crearBackup(state));
-    state = normalizarEstado(payload.data);
-    await persist();
+    if (!confirm(`${formatearResumenImportacion(resumen)}\n\nAntes de importar se descargara una copia de los datos actuales.\n\n¿Sustituir todos los datos actuales?`)) return;
+    const copiaActual = await crearCopiaActual();
+    descargarJson(crearNombreCopia("gestor-turnos_copia-antes-de-importar"), copiaActual);
+    const estadoAnterior = structuredClone(state);
+    const estadoNuevo = normalizarEstado(data);
+    state = await sustituirEstadoConRollback({
+      estadoActual: estadoAnterior,
+      estadoNuevo,
+      guardarEstado: saveState,
+    });
+    runtimeNotice = "Copia importada correctamente. Se han restaurado todos los datos.";
+    recalcAndRender();
+    notify("Copia importada correctamente. Se han restaurado todos los datos.");
   } catch (error) {
     notify(`No se pudo importar: ${error.message}`, true);
   } finally {
     event.target.value = "";
   }
+}
+
+async function exportarCopiaJson() {
+  try {
+    const exportedAt = new Date().toISOString();
+    state.config.ultimaExportacionJson = exportedAt;
+    await saveState(state);
+    const snapshot = await exportDatabaseSnapshot(state);
+    const backup = crearBackup(state, snapshot, exportedAt);
+    descargarJson(crearNombreCopia("gestor-turnos_copia", new Date(exportedAt)), backup);
+    runtimeNotice = "Copia JSON exportada correctamente.";
+    recalcAndRender();
+  } catch (error) {
+    notify(`No se pudo exportar la copia JSON: ${error.message}`, true);
+  }
+}
+
+async function crearCopiaActual() {
+  const snapshot = await exportDatabaseSnapshot(state);
+  return crearBackup(state, snapshot);
 }
 
 function notify(message, isError = false) {

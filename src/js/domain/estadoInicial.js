@@ -12,6 +12,7 @@ export function crearEstadoInicial() {
       perfilNormativoId: PERFIL_NORMATIVO_SESCAM_2019.id,
       jornadaPersonalizada: 1519,
       mostrarLibresResumen: true,
+      ultimaExportacionJson: "",
     },
     turnos,
     ciclos: [
