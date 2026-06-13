@@ -70,7 +70,7 @@ function nav(activeTab) {
     ["turnos", "Turnos"],
     ["ciclos", "Ciclos"],
     ["cuadrante", "Cuadrante"],
-    ["jornada", "Jornada"],
+    ["jornada", "Resumen de jornada"],
     ["copias", "Copias"],
   ];
   return `<nav class="nav">${items.map(([id, label]) => `<button class="nav-button ${activeTab === id ? "active" : ""}" data-tab="${id}">${label}</button>`).join("")}</nav>`;
@@ -276,6 +276,16 @@ function renderCuadrante(state, calendario, selectedMonth) {
         <label class="compact-field">Mes<select id="monthSelector">${MESES.map((m, i) => `<option value="${i}" ${i === selectedMonth ? "selected" : ""}>${m}</option>`).join("")}</select></label>
         <button type="button" class="secondary recalculate-button" data-action="recalculate-calendar">Recalcular cuadrante</button>
       </div>
+      <div class="print-panel">
+        <div>
+          <h3>Impresion</h3>
+          <p class="muted">Genera vistas imprimibles locales con cabecera institucional, fecha y pie de firma.</p>
+        </div>
+        <div class="actions">
+          <button type="button" class="secondary" data-action="print-calendar-month">Imprimir mes actual</button>
+          <button type="button" class="secondary" data-action="print-calendar-year">Imprimir anio completo</button>
+        </div>
+      </div>
       <label class="checkbox-label summary-toggle"><input id="mostrarLibresResumen" type="checkbox" ${state.config.mostrarLibresResumen !== false ? "checked" : ""}> Mostrar libres y ausencias en el resumen</label>
       <div class="incidence-legend">
         <span><span class="shift-code" style="background:${TIPOS_INCIDENCIA.V.color};">V</span> Vacaciones</span>
@@ -335,7 +345,26 @@ function renderJornada(state, resumenes) {
       <td>${r.prorrataPendiente ? '<span class="badge warn">Prorrata pendiente</span>' : ""} ${r.jornada.advertencia ? `<span class="badge danger">${escapeHtml(r.jornada.advertencia)}</span>` : ""}</td>
     </tr>`;
   }).join("");
-  return `<div class="card"><div class="section-heading"><h2>Resumen de jornada</h2><p>Horas base previstas, descuentos por vacaciones y libre disposicion, y horas efectivas frente al objetivo anual. Bolsas prorrateadas por porcentaje de jornada.</p></div><div class="table-wrap"><table><thead><tr><th>Profesional</th><th>Modalidad</th><th>Noches base</th><th>Jornada normativa</th><th>%</th><th>Objetivo</th><th>Base prevista</th><th>Vacaciones</th><th>LD</th><th>Efectivas</th><th>Diferencia</th><th>Estado</th><th>Saldo vacaciones</th><th>Saldo LD</th><th>Alertas</th></tr></thead><tbody>${rows || emptyRow(15)}</tbody></table></div></div>`;
+  return `
+    <div class="card">
+      <div class="section-heading">
+        <h2>Resumen de jornada</h2>
+        <p>Horas base previstas, descuentos por vacaciones y libre disposicion, y horas efectivas frente al objetivo anual. Bolsas prorrateadas por porcentaje de jornada.</p>
+      </div>
+      <div class="print-panel">
+        <div>
+          <h3>Impresion</h3>
+          <p class="muted">Imprime el resumen general o una planilla individual anual con meses como filas y dias 1-31 como columnas.</p>
+        </div>
+        <div class="print-controls">
+          <button type="button" class="secondary" data-action="print-summary-general">Imprimir resumen general</button>
+          <label class="compact-field">Profesional a imprimir<select id="printProfessionalSelector">${options(obtenerProfesionalesOrdenados(state.profesionales).map((p) => [p.id, p.nombre || p.identificador]))}</select></label>
+          <button type="button" class="secondary" data-action="print-summary-individual">Imprimir resumen individual</button>
+        </div>
+      </div>
+      <div class="table-wrap"><table><thead><tr><th>Profesional</th><th>Modalidad</th><th>Noches base</th><th>Jornada normativa</th><th>%</th><th>Objetivo</th><th>Base prevista</th><th>Vacaciones</th><th>LD</th><th>Efectivas</th><th>Diferencia</th><th>Estado</th><th>Saldo vacaciones</th><th>Saldo LD</th><th>Alertas</th></tr></thead><tbody>${rows || emptyRow(15)}</tbody></table></div>
+    </div>
+  `;
 }
 
 function renderCopias(state) {

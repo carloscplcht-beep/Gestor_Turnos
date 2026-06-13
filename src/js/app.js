@@ -9,6 +9,7 @@ import { aplicarIncidencia, calcularDerechosAusencias, calcularUsoActualIncidenc
 import { clearState, exportDatabaseSnapshot, loadState, saveState } from "./storage/indexedDb.js";
 import { crearBackup, crearNombreCopia, descargarJson, formatearResumenImportacion, prepararImportacionBackup, sustituirEstadoConRollback } from "./services/backupService.js";
 import { renderApp } from "./ui/render.js";
+import { imprimirCuadranteAnual, imprimirCuadranteMensual, imprimirResumenGeneral, imprimirResumenIndividual } from "./ui/print.js";
 import { normalizarFechaIso } from "./utils/dateUtils.js";
 
 let state = crearEstadoInicial();
@@ -168,6 +169,13 @@ async function handleAction(event) {
   }
   if (action === "recalculate-calendar") {
     await recalcularCuadranteDesdeIndexedDb();
+  }
+  if (action === "print-calendar-month") return imprimirCuadranteMensual(state, calendario, selectedMonth);
+  if (action === "print-calendar-year") return imprimirCuadranteAnual(state, calendario);
+  if (action === "print-summary-general") return imprimirResumenGeneral(state, calendario, resumenes);
+  if (action === "print-summary-individual") {
+    const profesionalId = root.querySelector("#printProfessionalSelector")?.value || state.profesionales[0]?.id || "";
+    return imprimirResumenIndividual(state, calendario, resumenes, profesionalId);
   }
   if (action === "edit-incidencia") {
     await editarIncidenciaCelda(id, event.currentTarget.dataset.fecha);

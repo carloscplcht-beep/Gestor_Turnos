@@ -71,6 +71,16 @@ async function main() {
     if (result.hasDiagnosticPanel) {
       throw new Error("El panel Diagnostico de proyeccion sigue visible.");
     }
+    if (!result.navTexts.includes("Resumen de jornada") || result.navTexts.includes("Jornada")) {
+      throw new Error(`La navegacion no muestra el nuevo nombre de seccion: ${JSON.stringify(result.navTexts)}`);
+    }
+    if (result.printChecks.printCalls !== 4) {
+      throw new Error(`No se invocaron las cuatro impresiones esperadas: ${JSON.stringify(result.printChecks)}`);
+    }
+    assertPrintView(result.printChecks.month, { title: "Cuadrante mensual de turnos", logos: 2, signature: true, table: true }, "impresion mensual");
+    assertPrintView(result.printChecks.year, { title: "Cuadrante anual de turnos", logos: 24, signature: true, monthBlocks: 12 }, "impresion anual");
+    assertPrintView(result.printChecks.general, { title: "Resumen general de jornada", logos: 2, signature: true, table: true }, "impresion resumen general");
+    assertPrintView(result.printChecks.individual, { title: "Planilla individual anual", logos: 2, signature: true, individualRows: 12, individualDayHeaders: 31 }, "impresion individual");
     if (result.recalculateNotice !== "Cuadrante recalculado correctamente") {
       throw new Error(`Aviso de recalculo no valido: ${result.recalculateNotice}`);
     }
@@ -244,6 +254,17 @@ class CdpClient {
 function assertDeepEqual(actual, expected, label) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error(`${label} no coincide.\nActual: ${JSON.stringify(actual, null, 2)}\nEsperado: ${JSON.stringify(expected, null, 2)}`);
+  }
+}
+
+function assertPrintView(actual, expected, label) {
+  for (const [key, value] of Object.entries(expected)) {
+    if (actual[key] !== value) {
+      throw new Error(`${label}: ${key} no coincide. Actual: ${JSON.stringify(actual, null, 2)} Esperado: ${JSON.stringify(expected, null, 2)}`);
+    }
+  }
+  if (!actual.hasDate || !actual.dataLogoSources) {
+    throw new Error(`${label}: faltan fecha de impresion o logos embebidos. ${JSON.stringify(actual, null, 2)}`);
   }
 }
 
@@ -434,6 +455,8 @@ async function browserScenarioAfterReload() {
     .filter((row) => row.querySelector("td")?.textContent?.trim()?.startsWith("P"))
     .slice(0, 8);
   const renderedSequences = rows.map((row) => Array.from(row.querySelectorAll("td.shift-cell")).slice(0, 8).map((cell) => cell.textContent.trim()).join(","));
+  const navTexts = Array.from(document.querySelectorAll(".nav-button")).map((button) => button.textContent.trim());
+  const printChecks = await exercisePrintViews();
 
   return {
     indexedDbAfterReload,
@@ -445,6 +468,8 @@ async function browserScenarioAfterReload() {
     hasDiagnosticPanel,
     jan1,
     renderedSequences,
+    navTexts,
+    printChecks,
     consoleErrors,
   };
 
@@ -476,6 +501,75 @@ async function browserScenarioAfterReload() {
       .slice()
       .sort((a, b) => Number(a.ordenVisual) - Number(b.ordenVisual))
       .map((item) => ({ nombre: item.nombre, fechaInicioCiclo: item.fechaInicioCiclo, posicionInicial: Number(item.posicionInicial || 0) }));
+  }
+
+  async function exercisePrintViews() {
+    const originalPrint = window.print;
+    let printCalls = 0;
+    window.print = () => {
+      printCalls += 1;
+    };
+    try {
+      const monthButton = document.querySelector('[data-action="print-calendar-month"]');
+      const yearButton = document.querySelector('[data-action="print-calendar-year"]');
+      if (!monthButton || !yearButton) throw new Error("No existen los botones de impresion de cuadrante.");
+
+      monthButton.click();
+      await waitFor(() => document.querySelector(".print-root .print-document"));
+      const month = inspectPrintRoot();
+      clearPrintRoot();
+
+      yearButton.click();
+      await waitFor(() => document.querySelector(".print-root .annual-document"));
+      const year = inspectPrintRoot();
+      clearPrintRoot();
+
+      document.querySelector('[data-tab="jornada"]').click();
+      await waitFor(() => document.querySelector('[data-action="print-summary-general"]') && document.querySelector("#printProfessionalSelector"));
+      const generalButton = document.querySelector('[data-action="print-summary-general"]');
+      const individualButton = document.querySelector('[data-action="print-summary-individual"]');
+      const selector = document.querySelector("#printProfessionalSelector");
+      selector.value = reloaded.profesionales.find((profesional) => profesional.nombre === "P1")?.id || selector.value;
+      selector.dispatchEvent(new Event("change", { bubbles: true }));
+
+      generalButton.click();
+      await waitFor(() => document.querySelector(".print-root .print-summary-table"));
+      const general = inspectPrintRoot();
+      clearPrintRoot();
+
+      individualButton.click();
+      await waitFor(() => document.querySelector(".print-root .individual-year-table"));
+      const individual = inspectPrintRoot();
+      clearPrintRoot();
+
+      return { printCalls, month, year, general, individual };
+    } finally {
+      window.print = originalPrint;
+      clearPrintRoot();
+    }
+  }
+
+  function inspectPrintRoot() {
+    const root = document.querySelector(".print-root");
+    if (!root) throw new Error("No existe print-root.");
+    const logos = Array.from(root.querySelectorAll(".print-logo img"));
+    return {
+      title: root.querySelector(".print-title h1")?.textContent?.trim() || "",
+      logos: logos.length,
+      dataLogoSources: logos.every((image) => image.getAttribute("src")?.startsWith("data:image/jpeg")),
+      hasDate: root.textContent.includes("Fecha de impresion"),
+      signature: Boolean(root.querySelector(".print-signature")),
+      table: Boolean(root.querySelector(".print-table")),
+      monthBlocks: root.querySelectorAll(".month-block").length,
+      individualRows: root.querySelectorAll(".individual-year-table tbody tr").length,
+      individualDayHeaders: Math.max(0, root.querySelectorAll(".individual-year-table thead th").length - 1),
+      emptyDayCells: root.querySelectorAll(".individual-year-table .empty-day").length,
+    };
+  }
+
+  function clearPrintRoot() {
+    document.querySelector(".print-root")?.remove();
+    document.body.classList.remove("printing-ready");
   }
 
   async function waitFor(predicate) {

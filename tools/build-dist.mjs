@@ -54,6 +54,7 @@ async function buildScript() {
     "src/js/storage/indexedDb.js",
     "src/js/services/backupService.js",
     "src/js/ui/render.js",
+    "src/js/ui/print.js",
     "src/js/app.js",
   ];
   const chunks = [await buildBrandAssetsChunk()];
@@ -65,8 +66,8 @@ async function buildScript() {
 }
 
 async function buildBrandAssetsChunk() {
-  const gaicrLogo = await dataUri("src/assets/logos/gaicr.jpg", "image/jpeg");
-  const sescamLogo = await dataUri("src/assets/logos/sescam.jpg", "image/jpeg");
+  const gaicrLogo = await dataUri("src/assets/logos/GAICR.jpg", "image/jpeg");
+  const sescamLogo = await dataUri("src/assets/logos/Servicio-Salud-Castilla-La-Mancha.jpg", "image/jpeg");
   return `\n// ---- generated brand assets ----\nconst BRAND_ASSETS = ${JSON.stringify({ gaicrLogo, sescamLogo }, null, 2)};\n`;
 }
 

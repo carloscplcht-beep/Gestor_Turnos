@@ -25,6 +25,7 @@ Revision tecnica de la V0.1 visualmente mejorada del Gestor Local de Turnos de E
 | Reset local | `clearState()` sobre IndexedDB | Confirmado |
 | Exportacion manual | `Blob`, `URL.createObjectURL`, enlace de descarga | Confirmado |
 | Importacion manual | `input type="file"` y `file.text()` | Confirmado |
+| Impresion local | Plantillas HTML locales y `window.print()` | Confirmado |
 | HTML autosuficiente | `index.html` y `dist/gestor-turnos-enfermeria.html` generados por el mismo build | Confirmado |
 
 ## Resultado de privacidad
@@ -38,6 +39,8 @@ Revision tecnica de la V0.1 visualmente mejorada del Gestor Local de Turnos de E
 - La persistencia usa IndexedDB en el navegador/equipo del usuario.
 - La exportacion JSON se inicia manualmente por el usuario y genera una descarga local.
 - La importacion JSON se inicia manualmente seleccionando un archivo local.
+- La impresion de cuadrantes y resumenes se genera como HTML local dentro del navegador y usa el dialogo nativo mediante `window.print()`.
+- Las vistas imprimibles reutilizan los datos ya cargados en memoria/IndexedDB y no invocan servicios de PDF ni APIs externas.
 
 ## Limitaciones y advertencias
 

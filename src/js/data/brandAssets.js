@@ -1,4 +1,4 @@
 export const BRAND_ASSETS = {
-  gaicrLogo: "./assets/logos/gaicr.jpg",
-  sescamLogo: "./assets/logos/sescam.jpg",
+  gaicrLogo: "./assets/logos/GAICR.jpg",
+  sescamLogo: "./assets/logos/Servicio-Salud-Castilla-La-Mancha.jpg",
 };

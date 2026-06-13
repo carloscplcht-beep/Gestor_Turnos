@@ -388,6 +388,27 @@ tr:last-child td { border-bottom: 0; }
   gap: 6px;
 }
 .summary-toggle { margin-top: 14px; max-width: max-content; }
+.print-panel {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #f8fbfd;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.print-panel h3 { margin: 0 0 4px; font-size: 15px; }
+.print-panel p { margin: 0; }
+.print-controls {
+  display: flex;
+  gap: 10px;
+  align-items: end;
+  flex-wrap: wrap;
+}
+.print-root { display: none; }
 .calendar .summary-title td {
   position: static;
   background: #e2f0f6 !important;
@@ -481,6 +502,265 @@ tr:last-child td { border-bottom: 0; }
     animation-duration: 1ms !important;
     transition-duration: 1ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  body {
+    min-width: 0;
+    background: #fff !important;
+    color: #172b3a;
+    font-size: 10px;
+    overflow: visible;
+  }
+
+  #app { display: none !important; }
+  .print-root {
+    display: block !important;
+    background: #fff;
+  }
+
+  .print-document {
+    display: block;
+    color: #172b3a;
+    font-family: "Segoe UI", Arial, sans-serif;
+  }
+
+  .print-page {
+    page-break-after: always;
+    break-after: page;
+    min-height: 180mm;
+  }
+
+  .print-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  .print-header {
+    display: grid;
+    grid-template-columns: 46mm minmax(0, 1fr) 56mm;
+    gap: 10mm;
+    align-items: center;
+    padding-bottom: 5mm;
+    border-bottom: 1px solid #b8c7d2;
+    margin-bottom: 5mm;
+  }
+
+  .print-logo {
+    min-height: 18mm;
+    display: flex;
+    align-items: center;
+  }
+
+  .print-logo-left { justify-content: flex-start; }
+  .print-logo-right { justify-content: flex-end; }
+  .print-logo img {
+    max-width: 100%;
+    max-height: 18mm;
+    object-fit: contain;
+  }
+
+  .print-title { text-align: center; }
+  .print-title h1 {
+    margin: 0;
+    font-size: 18px;
+    line-height: 1.2;
+    letter-spacing: 0;
+  }
+
+  .print-title p {
+    margin: 2mm 0 0;
+    color: #4b6173;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .print-meta {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 2mm;
+    margin: 0 0 5mm;
+  }
+
+  .print-meta div {
+    border: 1px solid #d2dde5;
+    background: #f7fafc;
+    padding: 2mm;
+    min-height: 12mm;
+  }
+
+  .print-meta dt {
+    margin: 0 0 1mm;
+    color: #516879;
+    font-size: 8px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .print-meta dd {
+    margin: 0;
+    font-size: 10px;
+    font-weight: 700;
+    color: #172b3a;
+  }
+
+  .print-table-wrap {
+    overflow: visible;
+    border: 1px solid #b8c7d2;
+  }
+
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  .print-table th,
+  .print-table td {
+    border: 1px solid #cbd7df;
+    padding: 1.2mm;
+    white-space: normal;
+    text-align: center;
+    vertical-align: middle;
+    color: #172b3a;
+    background-clip: padding-box;
+  }
+
+  .print-table th {
+    background: #eaf2f7 !important;
+    font-size: 8px;
+    font-weight: 800;
+  }
+
+  .print-calendar-table th:first-child,
+  .print-calendar-table td:first-child {
+    width: 34mm;
+    text-align: left;
+    font-weight: 800;
+  }
+
+  .print-calendar-table th:not(:first-child):not(:last-child),
+  .print-calendar-table td:not(:first-child):not(:last-child) {
+    width: 7mm;
+  }
+
+  .print-calendar-table.compact th,
+  .print-calendar-table.compact td {
+    padding: .8mm;
+    font-size: 7px;
+  }
+
+  .print-shift {
+    font-weight: 800;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .weekend {
+    background-color: #eef3f6 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-section-row td {
+    text-align: left;
+    background: #dfeef5 !important;
+    font-weight: 900;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-summary-row td:first-child,
+  .print-summary-total td:first-child {
+    text-align: left;
+    font-weight: 800;
+  }
+
+  .print-summary-total td {
+    background: #eef8f6 !important;
+    font-weight: 900;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-summary-table {
+    font-size: 8px;
+  }
+
+  .print-summary-table th:first-child,
+  .print-summary-table td:first-child {
+    width: 34mm;
+    text-align: left;
+  }
+
+  .individual-year-table {
+    font-size: 7px;
+  }
+
+  .individual-year-table th:first-child,
+  .individual-year-table td:first-child {
+    width: 22mm;
+    text-align: left;
+    font-weight: 900;
+  }
+
+  .individual-year-table th:not(:first-child),
+  .individual-year-table td:not(:first-child) {
+    width: 7mm;
+    min-width: 7mm;
+    max-width: 7mm;
+    padding: .8mm;
+  }
+
+  .empty-day {
+    background: #f4f6f8 !important;
+    color: transparent;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .individual-summary {
+    margin-top: 5mm;
+  }
+
+  .individual-summary h2 {
+    margin: 0 0 3mm;
+    font-size: 13px;
+  }
+
+  .print-signature {
+    margin-top: 8mm;
+    border-top: 1px solid #b8c7d2;
+    padding-top: 4mm;
+    page-break-inside: avoid;
+  }
+
+  .print-signature p {
+    margin: 0 0 6mm;
+    font-weight: 700;
+  }
+
+  .signature-lines {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12mm;
+  }
+
+  .signature-lines div {
+    display: grid;
+    gap: 7mm;
+  }
+
+  .signature-lines strong {
+    display: block;
+    border-bottom: 1px solid #172b3a;
+    min-height: 8mm;
   }
 }
 
