@@ -388,6 +388,17 @@ tr:last-child td { border-bottom: 0; }
   gap: 6px;
 }
 .summary-toggle { margin-top: 14px; max-width: max-content; }
+.diagnostic-panel {
+  margin-top: 14px;
+}
+.diagnostic-panel h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+.projection-diagnostic th,
+.projection-diagnostic td {
+  font-size: 12px;
+}
 .calendar .summary-title td {
   position: static;
   background: #e2f0f6 !important;

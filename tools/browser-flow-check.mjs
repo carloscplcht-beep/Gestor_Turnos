@@ -71,6 +71,20 @@ async function main() {
       throw new Error(`No se emitio diagnostico de recalculo: ${JSON.stringify(result.recalculateDiagnostics)}`);
     }
     assertDeepEqual(
+      result.visibleProjectionDiagnostic,
+      expectedJan1.map(({ nombre, fechaInicioCiclo, diasTranscurridos, indice, turno }) => ({
+        nombre,
+        fechaInicioCiclo,
+        posicionInicial: "0",
+        fechaInicioContrato: "2026-01-01",
+        fechaFinContrato: "2026-12-31",
+        dias: String(diasTranscurridos),
+        indice: String(indice),
+        turno,
+      })),
+      "diagnostico visible",
+    );
+    assertDeepEqual(
       result.jan1,
       expectedJan1.map(({ nombre, diasTranscurridos, indice, turno }) => ({ nombre, diasTranscurridos, indice, turno })),
       "resultado 2026-01-01",
@@ -399,6 +413,19 @@ async function browserScenarioAfterReload() {
   recalculateButton.click();
   await waitFor(() => document.querySelector(".notice-ok")?.textContent?.includes("Cuadrante recalculado correctamente"));
   const recalculateNotice = document.querySelector(".notice-ok")?.textContent?.trim() || "";
+  const visibleProjectionDiagnostic = Array.from(document.querySelectorAll(".projection-diagnostic tbody tr")).slice(0, 8).map((row) => {
+    const cells = Array.from(row.querySelectorAll("td")).map((cell) => cell.textContent.trim());
+    return {
+      nombre: cells[0],
+      fechaInicioCiclo: cells[2],
+      posicionInicial: cells[3],
+      fechaInicioContrato: cells[4],
+      fechaFinContrato: cells[5],
+      dias: cells[6],
+      indice: cells[7],
+      turno: cells[8],
+    };
+  });
 
   const jan1 = (await readStateFromIndexedDb()).profesionales
     .slice()
@@ -424,6 +451,7 @@ async function browserScenarioAfterReload() {
     indexedDbAfterImport,
     recalculateNotice,
     recalculateDiagnostics: consoleInfo,
+    visibleProjectionDiagnostic,
     jan1,
     renderedSequences,
     consoleErrors,

@@ -16,6 +16,7 @@ let activeTab = "inicio";
 let selectedMonth = 0;
 let calendario = {};
 let resumenes = [];
+let diagnosticoProyeccion = [];
 let runtimeNotice = "";
 let runtimeNoticeKind = "warn";
 
@@ -45,8 +46,9 @@ function recalcAndRender() {
   state = migrarEstado(state);
   calendario = generarCalendarioAnual(state);
   resumenes = calcularResumenGlobal(state, calendario);
+  diagnosticoProyeccion = calcularDiagnosticoProyeccion(state);
   globalThis.gestorTurnosDiagnostico = (profesionalId, fechaConsultada) => diagnosticarTurnoProfesional(state, profesionalId, fechaConsultada);
-  renderApp(root, state, calendario, resumenes, activeTab, selectedMonth, runtimeNotice, runtimeNoticeKind);
+  renderApp(root, state, calendario, resumenes, activeTab, selectedMonth, runtimeNotice, runtimeNoticeKind, diagnosticoProyeccion);
   bindEvents();
 }
 
@@ -269,19 +271,29 @@ function validarDatosRecalculo(currentState) {
 }
 
 function imprimirDiagnosticoRecalculo() {
-  const fechaConsultada = `${Number(state.config.anioActivo)}-${String(selectedMonth + 1).padStart(2, "0")}-01`;
-  const diagnostico = obtenerProfesionalesOrdenados(state.profesionales || []).map((profesional) => {
-    const ciclo = state.ciclos.find((item) => item.id === profesional.cicloId);
-    const dia = calendario[profesional.id]?.[fechaConsultada] || {};
+  const diagnostico = calcularDiagnosticoProyeccion(state);
+  const fechaConsultada = diagnostico[0]?.fechaConsultada || `${Number(state.config.anioActivo)}-${String(selectedMonth + 1).padStart(2, "0")}-01`;
+  console.info(`Recalculo cuadrante ${fechaConsultada}`, diagnostico);
+}
+
+function calcularDiagnosticoProyeccion(currentState) {
+  const fechaConsultada = `${Number(currentState.config.anioActivo)}-${String(selectedMonth + 1).padStart(2, "0")}-01`;
+  return obtenerProfesionalesOrdenados(currentState.profesionales || []).map((profesional) => {
+    const ciclo = currentState.ciclos.find((item) => item.id === profesional.cicloId);
+    const diagnostico = diagnosticarTurnoProfesional(currentState, profesional.id, fechaConsultada);
     return {
       nombre: profesional.nombre || profesional.identificador,
+      cicloAsignado: ciclo?.nombre || "",
       fechaInicioCiclo: profesional.fechaInicioCiclo,
       posicionInicial: Number(profesional.posicionInicial || 0),
-      cicloAsignado: ciclo?.nombre || "",
-      turnoDia1MesSeleccionado: dia.codigo || "",
+      fechaInicioContrato: profesional.fechaInicio,
+      fechaFinContrato: profesional.fechaFin,
+      fechaConsultada,
+      diasTranscurridos: diagnostico?.diasTranscurridos ?? null,
+      indiceCalculado: diagnostico?.indiceCalculado ?? null,
+      turnoDia1MesSeleccionado: diagnostico?.turnoResultante || "",
     };
   });
-  console.info(`Recalculo cuadrante ${fechaConsultada}`, diagnostico);
 }
 
 async function editarIncidenciaCelda(profesionalId, fecha) {

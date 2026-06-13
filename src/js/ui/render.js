@@ -9,7 +9,7 @@ import { monthDates, parseDate, weekdayIndex } from "../utils/dateUtils.js";
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const DIAS = ["D", "L", "M", "X", "J", "V", "S"];
 
-export function renderApp(root, state, calendario, resumenes, activeTab = "inicio", selectedMonth = 0, runtimeNotice = "", runtimeNoticeKind = "warn") {
+export function renderApp(root, state, calendario, resumenes, activeTab = "inicio", selectedMonth = 0, runtimeNotice = "", runtimeNoticeKind = "warn", diagnosticoProyeccion = []) {
   root.innerHTML = `
     <div class="app-shell">
       <aside class="sidebar">
@@ -52,7 +52,7 @@ export function renderApp(root, state, calendario, resumenes, activeTab = "inici
           ${section("profesionales", activeTab, renderProfesionales(state, resumenes))}
           ${section("turnos", activeTab, renderTurnos(state))}
           ${section("ciclos", activeTab, renderCiclos(state))}
-          ${section("cuadrante", activeTab, renderCuadrante(state, calendario, selectedMonth))}
+          ${section("cuadrante", activeTab, renderCuadrante(state, calendario, selectedMonth, diagnosticoProyeccion))}
           ${section("jornada", activeTab, renderJornada(state, resumenes))}
           ${section("copias", activeTab, renderCopias(state))}
         </div>
@@ -266,7 +266,7 @@ function cicloCard(ciclo, state) {
   </div>`;
 }
 
-function renderCuadrante(state, calendario, selectedMonth) {
+function renderCuadrante(state, calendario, selectedMonth, diagnosticoProyeccion) {
   return `
     <div class="card">
       <div class="section-heading">
@@ -277,6 +277,7 @@ function renderCuadrante(state, calendario, selectedMonth) {
         <label class="compact-field">Mes<select id="monthSelector">${MESES.map((m, i) => `<option value="${i}" ${i === selectedMonth ? "selected" : ""}>${m}</option>`).join("")}</select></label>
         <button type="button" class="secondary recalculate-button" data-action="recalculate-calendar">Recalcular cuadrante</button>
       </div>
+      ${renderDiagnosticoProyeccion(diagnosticoProyeccion)}
       <label class="checkbox-label summary-toggle"><input id="mostrarLibresResumen" type="checkbox" ${state.config.mostrarLibresResumen !== false ? "checked" : ""}> Mostrar libres y ausencias en el resumen</label>
       <div class="incidence-legend">
         <span><span class="shift-code" style="background:${TIPOS_INCIDENCIA.V.color};">V</span> Vacaciones</span>
@@ -285,6 +286,31 @@ function renderCuadrante(state, calendario, selectedMonth) {
     </div>
     <div class="card">
       <div class="table-wrap">${tablaCuadrante(state, calendario, selectedMonth)}</div>
+    </div>
+  `;
+}
+
+function renderDiagnosticoProyeccion(diagnosticoProyeccion = []) {
+  const rows = diagnosticoProyeccion.map((item) => `<tr>
+    <td>${escapeHtml(item.nombre)}</td>
+    <td>${escapeHtml(item.cicloAsignado)}</td>
+    <td>${escapeHtml(item.fechaInicioCiclo)}</td>
+    <td>${Number.isFinite(Number(item.posicionInicial)) ? Number(item.posicionInicial) : ""}</td>
+    <td>${escapeHtml(item.fechaInicioContrato)}</td>
+    <td>${escapeHtml(item.fechaFinContrato)}</td>
+    <td>${item.diasTranscurridos ?? ""}</td>
+    <td>${item.indiceCalculado ?? ""}</td>
+    <td>${escapeHtml(item.turnoDia1MesSeleccionado)}</td>
+  </tr>`).join("");
+  return `
+    <div class="diagnostic-panel">
+      <h3>Diagnóstico de proyección</h3>
+      <div class="table-wrap">
+        <table class="projection-diagnostic">
+          <thead><tr><th>Profesional</th><th>Ciclo asignado</th><th>Fecha inicio ciclo leída desde IndexedDB</th><th>Posición inicial leída desde IndexedDB</th><th>Fecha inicio contrato</th><th>Fecha fin contrato</th><th>Días</th><th>Índice calculado</th><th>Turno día 1 mes visible</th></tr></thead>
+          <tbody>${rows || emptyRow(9)}</tbody>
+        </table>
+      </div>
     </div>
   `;
 }

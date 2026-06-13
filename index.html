@@ -395,6 +395,17 @@ tr:last-child td { border-bottom: 0; }
   gap: 6px;
 }
 .summary-toggle { margin-top: 14px; max-width: max-content; }
+.diagnostic-panel {
+  margin-top: 14px;
+}
+.diagnostic-panel h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+.projection-diagnostic th,
+.projection-diagnostic td {
+  font-size: 12px;
+}
 .calendar .summary-title td {
   position: static;
   background: #e2f0f6 !important;
@@ -3166,7 +3177,7 @@ function validarSnapshotIndexedDb(payload, errores) {
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const DIAS = ["D", "L", "M", "X", "J", "V", "S"];
 
-function renderApp(root, state, calendario, resumenes, activeTab = "inicio", selectedMonth = 0, runtimeNotice = "", runtimeNoticeKind = "warn") {
+function renderApp(root, state, calendario, resumenes, activeTab = "inicio", selectedMonth = 0, runtimeNotice = "", runtimeNoticeKind = "warn", diagnosticoProyeccion = []) {
   root.innerHTML = `
     <div class="app-shell">
       <aside class="sidebar">
@@ -3209,7 +3220,7 @@ function renderApp(root, state, calendario, resumenes, activeTab = "inicio", sel
           ${section("profesionales", activeTab, renderProfesionales(state, resumenes))}
           ${section("turnos", activeTab, renderTurnos(state))}
           ${section("ciclos", activeTab, renderCiclos(state))}
-          ${section("cuadrante", activeTab, renderCuadrante(state, calendario, selectedMonth))}
+          ${section("cuadrante", activeTab, renderCuadrante(state, calendario, selectedMonth, diagnosticoProyeccion))}
           ${section("jornada", activeTab, renderJornada(state, resumenes))}
           ${section("copias", activeTab, renderCopias(state))}
         </div>
@@ -3423,7 +3434,7 @@ function cicloCard(ciclo, state) {
   </div>`;
 }
 
-function renderCuadrante(state, calendario, selectedMonth) {
+function renderCuadrante(state, calendario, selectedMonth, diagnosticoProyeccion) {
   return `
     <div class="card">
       <div class="section-heading">
@@ -3434,6 +3445,7 @@ function renderCuadrante(state, calendario, selectedMonth) {
         <label class="compact-field">Mes<select id="monthSelector">${MESES.map((m, i) => `<option value="${i}" ${i === selectedMonth ? "selected" : ""}>${m}</option>`).join("")}</select></label>
         <button type="button" class="secondary recalculate-button" data-action="recalculate-calendar">Recalcular cuadrante</button>
       </div>
+      ${renderDiagnosticoProyeccion(diagnosticoProyeccion)}
       <label class="checkbox-label summary-toggle"><input id="mostrarLibresResumen" type="checkbox" ${state.config.mostrarLibresResumen !== false ? "checked" : ""}> Mostrar libres y ausencias en el resumen</label>
       <div class="incidence-legend">
         <span><span class="shift-code" style="background:${TIPOS_INCIDENCIA.V.color};">V</span> Vacaciones</span>
@@ -3442,6 +3454,31 @@ function renderCuadrante(state, calendario, selectedMonth) {
     </div>
     <div class="card">
       <div class="table-wrap">${tablaCuadrante(state, calendario, selectedMonth)}</div>
+    </div>
+  `;
+}
+
+function renderDiagnosticoProyeccion(diagnosticoProyeccion = []) {
+  const rows = diagnosticoProyeccion.map((item) => `<tr>
+    <td>${escapeHtml(item.nombre)}</td>
+    <td>${escapeHtml(item.cicloAsignado)}</td>
+    <td>${escapeHtml(item.fechaInicioCiclo)}</td>
+    <td>${Number.isFinite(Number(item.posicionInicial)) ? Number(item.posicionInicial) : ""}</td>
+    <td>${escapeHtml(item.fechaInicioContrato)}</td>
+    <td>${escapeHtml(item.fechaFinContrato)}</td>
+    <td>${item.diasTranscurridos ?? ""}</td>
+    <td>${item.indiceCalculado ?? ""}</td>
+    <td>${escapeHtml(item.turnoDia1MesSeleccionado)}</td>
+  </tr>`).join("");
+  return `
+    <div class="diagnostic-panel">
+      <h3>Diagnóstico de proyección</h3>
+      <div class="table-wrap">
+        <table class="projection-diagnostic">
+          <thead><tr><th>Profesional</th><th>Ciclo asignado</th><th>Fecha inicio ciclo leída desde IndexedDB</th><th>Posición inicial leída desde IndexedDB</th><th>Fecha inicio contrato</th><th>Fecha fin contrato</th><th>Días</th><th>Índice calculado</th><th>Turno día 1 mes visible</th></tr></thead>
+          <tbody>${rows || emptyRow(9)}</tbody>
+        </table>
+      </div>
     </div>
   `;
 }
@@ -3581,6 +3618,7 @@ let activeTab = "inicio";
 let selectedMonth = 0;
 let calendario = {};
 let resumenes = [];
+let diagnosticoProyeccion = [];
 let runtimeNotice = "";
 let runtimeNoticeKind = "warn";
 
@@ -3610,8 +3648,9 @@ function recalcAndRender() {
   state = migrarEstado(state);
   calendario = generarCalendarioAnual(state);
   resumenes = calcularResumenGlobal(state, calendario);
+  diagnosticoProyeccion = calcularDiagnosticoProyeccion(state);
   globalThis.gestorTurnosDiagnostico = (profesionalId, fechaConsultada) => diagnosticarTurnoProfesional(state, profesionalId, fechaConsultada);
-  renderApp(root, state, calendario, resumenes, activeTab, selectedMonth, runtimeNotice, runtimeNoticeKind);
+  renderApp(root, state, calendario, resumenes, activeTab, selectedMonth, runtimeNotice, runtimeNoticeKind, diagnosticoProyeccion);
   bindEvents();
 }
 
@@ -3834,19 +3873,29 @@ function validarDatosRecalculo(currentState) {
 }
 
 function imprimirDiagnosticoRecalculo() {
-  const fechaConsultada = `${Number(state.config.anioActivo)}-${String(selectedMonth + 1).padStart(2, "0")}-01`;
-  const diagnostico = obtenerProfesionalesOrdenados(state.profesionales || []).map((profesional) => {
-    const ciclo = state.ciclos.find((item) => item.id === profesional.cicloId);
-    const dia = calendario[profesional.id]?.[fechaConsultada] || {};
+  const diagnostico = calcularDiagnosticoProyeccion(state);
+  const fechaConsultada = diagnostico[0]?.fechaConsultada || `${Number(state.config.anioActivo)}-${String(selectedMonth + 1).padStart(2, "0")}-01`;
+  console.info(`Recalculo cuadrante ${fechaConsultada}`, diagnostico);
+}
+
+function calcularDiagnosticoProyeccion(currentState) {
+  const fechaConsultada = `${Number(currentState.config.anioActivo)}-${String(selectedMonth + 1).padStart(2, "0")}-01`;
+  return obtenerProfesionalesOrdenados(currentState.profesionales || []).map((profesional) => {
+    const ciclo = currentState.ciclos.find((item) => item.id === profesional.cicloId);
+    const diagnostico = diagnosticarTurnoProfesional(currentState, profesional.id, fechaConsultada);
     return {
       nombre: profesional.nombre || profesional.identificador,
+      cicloAsignado: ciclo?.nombre || "",
       fechaInicioCiclo: profesional.fechaInicioCiclo,
       posicionInicial: Number(profesional.posicionInicial || 0),
-      cicloAsignado: ciclo?.nombre || "",
-      turnoDia1MesSeleccionado: dia.codigo || "",
+      fechaInicioContrato: profesional.fechaInicio,
+      fechaFinContrato: profesional.fechaFin,
+      fechaConsultada,
+      diasTranscurridos: diagnostico?.diasTranscurridos ?? null,
+      indiceCalculado: diagnostico?.indiceCalculado ?? null,
+      turnoDia1MesSeleccionado: diagnostico?.turnoResultante || "",
     };
   });
-  console.info(`Recalculo cuadrante ${fechaConsultada}`, diagnostico);
 }
 
 async function editarIncidenciaCelda(profesionalId, fecha) {
