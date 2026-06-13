@@ -21,6 +21,7 @@ export function migrarProfesionales(profesionales) {
     profesional.fechaInicio = normalizarFechaIso(profesional.fechaInicio) || profesional.fechaInicio;
     profesional.fechaFin = normalizarFechaIso(profesional.fechaFin) || profesional.fechaFin;
     profesional.fechaInicioCiclo = normalizarFechaIso(profesional.fechaInicioCiclo) || profesional.fechaInicioCiclo;
+    profesional.posicionInicial = 0;
     if (!Number.isFinite(Number(profesional.ordenVisual))) profesional.ordenVisual = index + 1;
     if (typeof profesional.activo !== "boolean") profesional.activo = true;
   });

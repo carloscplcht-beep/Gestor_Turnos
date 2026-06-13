@@ -63,27 +63,20 @@ async function main() {
     assertDeepEqual(result.indexedDbBeforeReload, expectedJan1.map(({ nombre, fechaInicioCiclo }) => ({ nombre, fechaInicioCiclo, posicionInicial: 0 })), "IndexedDB antes de recargar");
     assertDeepEqual(result.indexedDbAfterReload, expectedJan1.map(({ nombre, fechaInicioCiclo }) => ({ nombre, fechaInicioCiclo, posicionInicial: 0 })), "IndexedDB tras recargar");
     assertDeepEqual(result.exportedDates, expectedJan1.map(({ nombre, fechaInicioCiclo }) => ({ nombre, fechaInicioCiclo })), "exportacion JSON");
+    assertDeepEqual(result.exportedPositions, expectedJan1.map(({ nombre }) => ({ nombre, posicionInicial: 0 })), "posicion inicial exportada");
     assertDeepEqual(result.indexedDbAfterImport, expectedJan1.map(({ nombre, fechaInicioCiclo }) => ({ nombre, fechaInicioCiclo, posicionInicial: 0 })), "IndexedDB tras importar");
+    if (result.hasPositionField) {
+      throw new Error("El formulario de profesionales sigue mostrando posicionInicial.");
+    }
+    if (result.hasDiagnosticPanel) {
+      throw new Error("El panel Diagnostico de proyeccion sigue visible.");
+    }
     if (result.recalculateNotice !== "Cuadrante recalculado correctamente") {
       throw new Error(`Aviso de recalculo no valido: ${result.recalculateNotice}`);
     }
     if (!result.recalculateDiagnostics.some((entry) => entry.includes("Recalculo cuadrante 2026-01-01"))) {
       throw new Error(`No se emitio diagnostico de recalculo: ${JSON.stringify(result.recalculateDiagnostics)}`);
     }
-    assertDeepEqual(
-      result.visibleProjectionDiagnostic,
-      expectedJan1.map(({ nombre, fechaInicioCiclo, diasTranscurridos, indice, turno }) => ({
-        nombre,
-        fechaInicioCiclo,
-        posicionInicial: "0",
-        fechaInicioContrato: "2026-01-01",
-        fechaFinContrato: "2026-12-31",
-        dias: String(diasTranscurridos),
-        indice: String(indice),
-        turno,
-      })),
-      "diagnostico visible",
-    );
     assertDeepEqual(
       result.jan1,
       expectedJan1.map(({ nombre, diasTranscurridos, indice, turno }) => ({ nombre, diasTranscurridos, indice, turno })),
@@ -299,7 +292,6 @@ async function browserScenarioBeforeReload() {
       fechaInicio: "2026-01-01",
       fechaFin: "2026-12-31",
       cicloId: ciclo.id,
-      posicionInicial: "0",
       fechaInicioCiclo,
     });
     formValues.push({ nombre, fechaInicioCiclo, posicionInicial: 0 });
@@ -307,10 +299,12 @@ async function browserScenarioBeforeReload() {
   }
 
   const saved = await readStateFromIndexedDb();
+  const hasPositionField = Boolean(document.querySelector('#profesionalForm [name="posicionInicial"]'));
   return {
     formValues,
     savedValues: projectProfessionals(saved),
     indexedDbBeforeReload: projectProfessionals(saved),
+    hasPositionField,
     consoleErrors,
   };
 
@@ -392,12 +386,20 @@ async function browserScenarioAfterReload() {
     .slice()
     .sort((a, b) => Number(a.ordenVisual) - Number(b.ordenVisual))
     .map((item) => ({ nombre: item.nombre, fechaInicioCiclo: item.fechaInicioCiclo }));
+  const exportedPositions = backup.data.profesionales
+    .slice()
+    .sort((a, b) => Number(a.ordenVisual) - Number(b.ordenVisual))
+    .map((item) => ({ nombre: item.nombre, posicionInicial: Number(item.posicionInicial || 0) }));
+  const legacyBackup = JSON.parse(JSON.stringify(backup));
+  legacyBackup.data.profesionales.forEach((profesional, index) => {
+    profesional.posicionInicial = index + 1;
+  });
 
   await clearState();
   state = normalizarEstado(crearEstadoInicial());
   await saveState(state);
   recalcAndRender();
-  const prepared = prepararImportacionBackup(JSON.parse(JSON.stringify(backup)));
+  const prepared = prepararImportacionBackup(legacyBackup);
   if (prepared.errores.length) throw new Error(prepared.errores.join(" "));
   state = await sustituirEstadoConRollback({
     estadoActual: await readStateFromIndexedDb(),
@@ -413,19 +415,7 @@ async function browserScenarioAfterReload() {
   recalculateButton.click();
   await waitFor(() => document.querySelector(".notice-ok")?.textContent?.includes("Cuadrante recalculado correctamente"));
   const recalculateNotice = document.querySelector(".notice-ok")?.textContent?.trim() || "";
-  const visibleProjectionDiagnostic = Array.from(document.querySelectorAll(".projection-diagnostic tbody tr")).slice(0, 8).map((row) => {
-    const cells = Array.from(row.querySelectorAll("td")).map((cell) => cell.textContent.trim());
-    return {
-      nombre: cells[0],
-      fechaInicioCiclo: cells[2],
-      posicionInicial: cells[3],
-      fechaInicioContrato: cells[4],
-      fechaFinContrato: cells[5],
-      dias: cells[6],
-      indice: cells[7],
-      turno: cells[8],
-    };
-  });
+  const hasDiagnosticPanel = Boolean(document.querySelector(".projection-diagnostic, .diagnostic-panel"));
 
   const jan1 = (await readStateFromIndexedDb()).profesionales
     .slice()
@@ -448,10 +438,11 @@ async function browserScenarioAfterReload() {
   return {
     indexedDbAfterReload,
     exportedDates,
+    exportedPositions,
     indexedDbAfterImport,
     recalculateNotice,
     recalculateDiagnostics: consoleInfo,
-    visibleProjectionDiagnostic,
+    hasDiagnosticPanel,
     jan1,
     renderedSequences,
     consoleErrors,

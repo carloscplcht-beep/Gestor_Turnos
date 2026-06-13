@@ -16,7 +16,6 @@ let activeTab = "inicio";
 let selectedMonth = 0;
 let calendario = {};
 let resumenes = [];
-let diagnosticoProyeccion = [];
 let runtimeNotice = "";
 let runtimeNoticeKind = "warn";
 
@@ -46,9 +45,8 @@ function recalcAndRender() {
   state = migrarEstado(state);
   calendario = generarCalendarioAnual(state);
   resumenes = calcularResumenGlobal(state, calendario);
-  diagnosticoProyeccion = calcularDiagnosticoProyeccion(state);
   globalThis.gestorTurnosDiagnostico = (profesionalId, fechaConsultada) => diagnosticarTurnoProfesional(state, profesionalId, fechaConsultada);
-  renderApp(root, state, calendario, resumenes, activeTab, selectedMonth, runtimeNotice, runtimeNoticeKind, diagnosticoProyeccion);
+  renderApp(root, state, calendario, resumenes, activeTab, selectedMonth, runtimeNotice, runtimeNoticeKind);
   bindEvents();
 }
 
@@ -90,12 +88,12 @@ function bindEvents() {
     const errores = validarProfesional(data);
     if (errores.length) return notify(errores.join(" "), true);
     const existing = state.profesionales.find((item) => item.id === data.id);
-    if (existing && profesionalTieneIncidencias(existing.id) && cambiaBaseProfesional(existing, data) && !confirm("Este profesional tiene vacaciones o libre disposicion registrados. Si cambia ciclo, fecha de inicio o posicion, se mantendran las incidencias pero pueden cambiar las horas descontadas. ¿Desea continuar?")) return;
+    if (existing && profesionalTieneIncidencias(existing.id) && cambiaBaseProfesional(existing, data) && !confirm("Este profesional tiene vacaciones o libre disposicion registrados. Si cambia ciclo o fechas, se mantendran las incidencias pero pueden cambiar las horas descontadas. ¿Desea continuar?")) return;
     const payload = {
       ...(existing || crearProfesionalBase(state)),
       ...data,
       porcentajeJornada: Number(data.porcentajeJornada),
-      posicionInicial: Number(data.posicionInicial || 0),
+      posicionInicial: 0,
       ordenVisual: Number(data.ordenVisual || existing?.ordenVisual || siguienteOrdenVisual(state.profesionales)),
       activo: true,
     };
@@ -262,7 +260,6 @@ function validarDatosRecalculo(currentState) {
     if (!normalizarFechaIso(profesional.fechaInicioCiclo)) errores.push(`${etiqueta}: fecha de inicio de ciclo no valida.`);
     if (!normalizarFechaIso(profesional.fechaInicio)) errores.push(`${etiqueta}: fecha de inicio de contrato no valida.`);
     if (!normalizarFechaIso(profesional.fechaFin)) errores.push(`${etiqueta}: fecha de fin de contrato no valida.`);
-    if (!Number.isInteger(Number(profesional.posicionInicial))) errores.push(`${etiqueta}: posicion inicial no valida.`);
     if (profesional.fechaInicio && profesional.fechaFin && normalizarFechaIso(profesional.fechaInicio) && normalizarFechaIso(profesional.fechaFin) && profesional.fechaFin < profesional.fechaInicio) {
       errores.push(`${etiqueta}: fechas de contrato invertidas.`);
     }
@@ -285,7 +282,6 @@ function calcularDiagnosticoProyeccion(currentState) {
       nombre: profesional.nombre || profesional.identificador,
       cicloAsignado: ciclo?.nombre || "",
       fechaInicioCiclo: profesional.fechaInicioCiclo,
-      posicionInicial: Number(profesional.posicionInicial || 0),
       fechaInicioContrato: profesional.fechaInicio,
       fechaFinContrato: profesional.fechaFin,
       fechaConsultada,
@@ -345,7 +341,6 @@ function cicloTieneIncidencias(cicloId) {
 function cambiaBaseProfesional(existing, data) {
   return existing.cicloId !== data.cicloId
     || existing.fechaInicioCiclo !== data.fechaInicioCiclo
-    || Number(existing.posicionInicial || 0) !== Number(data.posicionInicial || 0)
     || existing.fechaInicio !== data.fechaInicio
     || existing.fechaFin !== data.fechaFin;
 }

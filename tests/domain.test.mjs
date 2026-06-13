@@ -140,12 +140,13 @@ test("migracion: conserva datos antiguos y anade orden/presencia/resumen", () =>
   const state = baseState({
     config: { anioActivo: 2026, jornadaPersonalizada: 1519 },
     turnos: [{ ...turno("L", "Libre", "", "", 0, "libre", "#ffffff", false), ordenVisual: undefined, cuentaComoPresencia: undefined }],
-    profesionales: [profesional("Ana", "", "2026-01-01", "2026-12-31", 0, 100, "diurno", { ordenVisual: undefined })],
+    profesionales: [profesional("Ana", "", "2026-01-01", "2026-12-31", 7, 100, "diurno", { ordenVisual: undefined })],
   });
   migrarEstado(state);
   assert.equal(state.schemaVersion, 2);
   assert.equal(state.config.mostrarLibresResumen, true);
   assert.equal(state.profesionales[0].ordenVisual, 1);
+  assert.equal(state.profesionales[0].posicionInicial, 0);
   assert.equal(state.turnos[0].ordenVisual, 1);
   assert.equal(state.turnos[0].cuentaComoPresencia, false);
 });
@@ -289,11 +290,26 @@ test("copias JSON: exportacion e importacion conservan nuevos campos", () => {
   assert.equal(importado.config.mostrarLibresResumen, false);
   assert.equal(importado.profesionales[0].ordenVisual, 1);
   assert.equal(importado.profesionales[0].fechaInicioCiclo, "2026-01-01");
-  assert.equal(importado.profesionales[3].posicionInicial, 3);
+  assert.ok(backup.data.profesionales.every((profesional) => profesional.posicionInicial === 0));
+  assert.ok(importado.profesionales.every((profesional) => profesional.posicionInicial === 0));
   assert.equal(importado.turnos.find((item) => item.codigo === "M").ordenVisual, 1);
   assert.equal(importado.turnos.find((item) => item.codigo === "L").cuentaComoPresencia, false);
   assert.equal(backup.perfilNormativo.tablaPonderacion.length, PERFIL_NORMATIVO_SESCAM_2019.tablaPonderacion.length);
   assert.equal(backup.indexedDb.stores.appState[0].key, "current");
+});
+
+test("copias JSON: importacion antigua normaliza posicion inicial a cero", () => {
+  const legacyState = estadoCompletoCopias();
+  legacyState.profesionales.forEach((profesional, index) => {
+    profesional.posicionInicial = index + 1;
+  });
+  const legacyBackup = crearBackup(legacyState);
+  legacyBackup.data.profesionales.forEach((profesional, index) => {
+    profesional.posicionInicial = index + 1;
+  });
+  const preparado = prepararImportacionBackup(JSON.parse(JSON.stringify(legacyBackup)));
+  assert.deepEqual(preparado.errores, []);
+  assert.ok(preparado.data.profesionales.every((profesional) => profesional.posicionInicial === 0));
 });
 
 test("copias JSON: rechaza corrupto, schema ausente, version incompatible y copia vacia", () => {
@@ -414,7 +430,7 @@ function estadoCompletoCopias() {
     ciclo.id,
     "2026-01-01",
     "2026-12-31",
-    index,
+    0,
     100,
     "rotatorio",
     {

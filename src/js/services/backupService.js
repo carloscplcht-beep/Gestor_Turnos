@@ -8,7 +8,7 @@ export const BACKUP_SCHEMA_VERSION = 1;
 export const APP_VERSION = "0.1";
 
 export function crearBackup(state, databaseSnapshot = null, exportedAt = new Date().toISOString()) {
-  const data = structuredClone(state);
+  const data = migrarEstado(structuredClone(state));
   const indexedDb = databaseSnapshot || crearSnapshotDesdeEstado(data);
   return {
     application: BACKUP_APPLICATION_NAME,
@@ -176,7 +176,6 @@ function validarEstado(data, errores) {
     validarFecha(profesional.fechaFin, `Fecha de fin no valida en ${profesional.nombre || profesional.id}.`, errores);
     validarFecha(profesional.fechaInicioCiclo, `Fecha de inicio de ciclo no valida en ${profesional.nombre || profesional.id}.`, errores);
     if (profesional.fechaInicio && profesional.fechaFin && profesional.fechaFin < profesional.fechaInicio) errores.push(`Contrato con fechas invertidas en ${profesional.nombre || profesional.id}.`);
-    if (!Number.isInteger(Number(profesional.posicionInicial))) errores.push(`Posicion inicial no valida en ${profesional.nombre || profesional.id}.`);
     if ("ordenVisual" in profesional && !Number.isFinite(Number(profesional.ordenVisual))) errores.push(`Orden visual no valido en ${profesional.nombre || profesional.id}.`);
   }
 
