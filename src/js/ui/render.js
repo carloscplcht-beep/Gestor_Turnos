@@ -122,7 +122,7 @@ function renderInicio(state, resumenes) {
     <div class="card evidence-card">
       <h2>Estado V0.1</h2>
       <p class="muted">Aplicación local sin servidor. Los cálculos se realizan en el navegador y se guardan en IndexedDB.</p>
-      <div class="notice">La fuente validada incluye 146 filas de ponderaciÃ³n, desde 0 hasta 145 noches.</div>
+      <div class="notice">La fuente validada incluye 146 filas de ponderación, desde 0 hasta 145 noches.</div>
     </div>
   `;
 }
@@ -180,7 +180,7 @@ function renderProfesionales(state, resumenes) {
         <label>Fecha inicio<input name="fechaInicio" type="date" value="${state.config.anioActivo}-01-01"></label>
         <label>Fecha fin<input name="fechaFin" type="date" value="${state.config.anioActivo}-12-31"></label>
         <label>Ciclo<select name="cicloId"><option value="">Sin ciclo</option>${options(state.ciclos.map((c) => [c.id, c.nombre]))}</select></label>
-        <label>Inicio ciclo<input name="fechaInicioCiclo" type="date" value="${state.config.anioActivo}-01-01"><span class="field-help">Para escalonar profesionales en el mismo ciclo, asigne fechas de inicio de ciclo consecutivas. La posiciÃ³n inicial se mantiene internamente en 0.</span></label>
+        <label>Inicio ciclo<input name="fechaInicioCiclo" type="date" value="${state.config.anioActivo}-01-01"><span class="field-help">Para escalonar profesionales en el mismo ciclo, asigne fechas de inicio de ciclo consecutivas. La posición inicial se mantiene internamente en 0.</span></label>
         <label>Jornada manual<input name="jornadaManual" type="number" step="0.01" placeholder="Opcional"></label>
         <div class="actions"><button type="submit">Guardar profesional</button><button type="button" class="secondary" data-action="clear-prof-form">Limpiar</button></div>
       </form>
@@ -280,18 +280,18 @@ function renderCuadrante(state, calendario, selectedMonth) {
       <p class="muted calendar-help">El desfase entre profesionales se controla mediante la fecha de inicio del ciclo.</p>
       <div class="print-panel">
         <div>
-          <h3>ImpresiÃ³n</h3>
+          <h3>Impresión</h3>
           <p class="muted">Genera vistas imprimibles locales con cabecera institucional, fecha y pie de firma.</p>
         </div>
         <div class="actions">
           <button type="button" class="secondary" data-action="print-calendar-month">Imprimir mes actual</button>
-          <button type="button" class="secondary" data-action="print-calendar-year">Imprimir aÃ±o completo</button>
+          <button type="button" class="secondary" data-action="print-calendar-year">Imprimir año completo</button>
         </div>
       </div>
       <label class="checkbox-label summary-toggle"><input id="mostrarLibresResumen" type="checkbox" ${state.config.mostrarLibresResumen !== false ? "checked" : ""}> Mostrar libres y ausencias en el resumen</label>
       <div class="incidence-legend">
         <span><span class="shift-code" style="background:${TIPOS_INCIDENCIA.V.color};">V</span> Vacaciones</span>
-        <span><span class="shift-code" style="background:${TIPOS_INCIDENCIA.LD.color};">LD</span> Libre disposiciÃ³n</span>
+        <span><span class="shift-code" style="background:${TIPOS_INCIDENCIA.LD.color};">LD</span> Libre disposición</span>
       </div>
     </div>
     <div class="card">
@@ -355,8 +355,8 @@ function renderJornada(state, resumenes) {
       </div>
       <div class="print-panel">
         <div>
-          <h3>ImpresiÃ³n</h3>
-          <p class="muted">Imprime el resumen general o una planilla individual anual con meses como filas y dÃ­as 1-31 como columnas.</p>
+          <h3>Impresión</h3>
+          <p class="muted">Imprime el resumen general o una planilla individual anual con meses como filas y días 1-31 como columnas.</p>
         </div>
         <div class="print-controls">
           <button type="button" class="secondary" data-action="print-summary-general">Imprimir resumen general</button>
@@ -364,14 +364,14 @@ function renderJornada(state, resumenes) {
           <button type="button" class="secondary" data-action="print-summary-individual">Imprimir resumen individual</button>
         </div>
       </div>
-      <div class="notice jornada-note">Las horas base previstas corresponden al turno originalmente proyectado. Las vacaciones y libres de disposiciÃ³n se descuentan como ausencia sobre el turno previsto. Las horas efectivas muestran la jornada programada tras aplicar esas incidencias.</div>
+      <div class="notice jornada-note">Las horas base previstas corresponden al turno originalmente proyectado. Las vacaciones y libres de disposición se descuentan como ausencia sobre el turno previsto. Las horas efectivas muestran la jornada programada tras aplicar esas incidencias.</div>
       <div class="table-wrap"><table><thead><tr><th>Profesional</th><th>Modalidad</th><th>Noches base</th><th>Jornada normativa</th><th>%</th><th>Objetivo</th><th>Base prevista</th><th>Vacaciones</th><th>LD</th><th>Efectivas</th><th>Diferencia</th><th>Estado</th><th>Saldo vacaciones</th><th>Saldo LD</th><th>Alertas</th></tr></thead><tbody>${rows || emptyRow(15)}</tbody></table></div>
     </div>
   `;
 }
 
 function renderCopias(state) {
-  const ultima = state.config.ultimaExportacionJson ? new Date(state.config.ultimaExportacionJson).toLocaleString("es-ES") : "TodavÃ­a no se ha exportado ninguna copia.";
+  const ultima = state.config.ultimaExportacionJson ? new Date(state.config.ultimaExportacionJson).toLocaleString("es-ES") : "Todavía no se ha exportado ninguna copia.";
   return `
     <div class="section-heading">
       <h2>Copias JSON</h2>
@@ -380,14 +380,14 @@ function renderCopias(state) {
     <div class="grid cols-2">
       <div class="card backup-card">
         <h3>Exportar</h3>
-        <p class="muted">Descarga un archivo JSON con configuraciÃ³n, profesionales, turnos, ciclos, Ã³rdenes visuales, asignaciones, jornada y tabla normativa.</p>
-        <div class="backup-meta"><strong>Ãšltima exportaciÃ³n</strong><span>${escapeHtml(ultima)}</span></div>
+        <p class="muted">Descarga un archivo JSON con configuración, profesionales, turnos, ciclos, órdenes visuales, asignaciones, jornada y tabla normativa.</p>
+        <div class="backup-meta"><strong>Última exportación</strong><span>${escapeHtml(ultima)}</span></div>
         <div class="actions"><button data-action="export-json">Exportar copia JSON</button></div>
       </div>
       <div class="card backup-card">
         <h3>Importar</h3>
-        <p class="muted">Restaura una copia creada por esta aplicaciÃ³n para continuar el trabajo en este navegador.</p>
-        <div class="notice notice-warn">La importaciÃ³n sustituirÃ¡ los datos almacenados actualmente en este navegador.</div>
+        <p class="muted">Restaura una copia creada por esta aplicación para continuar el trabajo en este navegador.</p>
+        <div class="notice notice-warn">La importación sustituirá los datos almacenados actualmente en este navegador.</div>
         <div class="actions">
           <button data-action="open-import-json">Importar copia JSON</button>
           <input class="file-input hidden-input" id="importJson" type="file" accept=".json,application/json">
@@ -397,9 +397,9 @@ function renderCopias(state) {
     <div class="card privacy-panel full-width">
       <h3>Mantenimiento local</h3>
       <ul>
-        <li>No existe sincronizaciÃ³n automÃ¡tica entre ordenadores.</li>
+        <li>No existe sincronización automática entre ordenadores.</li>
         <li>Antes de importar se descarga una copia previa de los datos actuales.</li>
-        <li>Guarde los archivos JSON en una ubicaciÃ³n segura.</li>
+        <li>Guarde los archivos JSON en una ubicación segura.</li>
       </ul>
       <div class="actions"><button class="danger" data-action="reset-data">Restablecer datos</button></div>
     </div>
@@ -417,7 +417,7 @@ function renderIncidenceModal(modal) {
         <div class="modal-header">
           <div>
             <h2 id="incidenceModalTitle">Editar incidencia</h2>
-            <p>${escapeHtml(modal.profesionalNombre)} Â· ${formatIsoDate(modal.fecha)}</p>
+            <p>${escapeHtml(modal.profesionalNombre)} · ${formatIsoDate(modal.fecha)}</p>
           </div>
           <button type="button" class="ghost modal-close" data-action="close-incidence-modal" aria-label="Cerrar">Cerrar</button>
         </div>
@@ -426,14 +426,14 @@ function renderIncidenceModal(modal) {
           <div><span>Horas previstas</span><strong>${fmt(modal.horasTurno)} h</strong></div>
         </div>
         <fieldset class="incidence-options">
-          <legend>AcciÃ³n</legend>
+          <legend>Acción</legend>
           ${incidenceOption("original", "Mantener turno original", accion)}
           ${incidenceOption("V", "Vacaciones", accion)}
-          ${incidenceOption("LD", "Libre disposiciÃ³n", accion)}
+          ${incidenceOption("LD", "Libre disposición", accion)}
         </fieldset>
         <div class="saldo-grid">
           ${saldoCard("Vacaciones", modal.vacaciones)}
-          ${saldoCard("Libre disposiciÃ³n", modal.libreDisposicion)}
+          ${saldoCard("Libre disposición", modal.libreDisposicion)}
         </div>
         ${modal.error ? `<div class="notice notice-warn modal-warning">${escapeHtml(modal.error)}</div>` : ""}
         ${necesitaConfirmacion ? `

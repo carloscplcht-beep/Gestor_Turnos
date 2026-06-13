@@ -74,6 +74,9 @@ async function main() {
     if (!result.navTexts.includes("Resumen de jornada") || result.navTexts.includes("Jornada")) {
       throw new Error(`La navegacion no muestra el nuevo nombre de seccion: ${JSON.stringify(result.navTexts)}`);
     }
+    if (!result.encodingChecks?.ok) {
+      throw new Error(`Se detectaron problemas de codificacion visibles: ${JSON.stringify(result.encodingChecks, null, 2)}`);
+    }
     if (result.printChecks.printCalls !== 4) {
       throw new Error(`No se invocaron las cuatro impresiones esperadas: ${JSON.stringify(result.printChecks)}`);
     }
@@ -462,6 +465,7 @@ async function browserScenarioAfterReload() {
     .slice(0, 8);
   const renderedSequences = rows.map((row) => Array.from(row.querySelectorAll("td.shift-cell")).slice(0, 8).map((cell) => cell.textContent.trim()).join(","));
   const navTexts = Array.from(document.querySelectorAll(".nav-button")).map((button) => button.textContent.trim());
+  const encodingChecks = await inspectEncodingAcrossTabs();
   const incidenceChecks = await exerciseIncidenceModal();
   const printChecks = await exercisePrintViews();
 
@@ -476,6 +480,7 @@ async function browserScenarioAfterReload() {
     jan1,
     renderedSequences,
     navTexts,
+    encodingChecks,
     incidenceChecks,
     printChecks,
     consoleErrors,
@@ -509,6 +514,36 @@ async function browserScenarioAfterReload() {
       .slice()
       .sort((a, b) => Number(a.ordenVisual) - Number(b.ordenVisual))
       .map((item) => ({ nombre: item.nombre, fechaInicioCiclo: item.fechaInicioCiclo, posicionInicial: Number(item.posicionInicial || 0) }));
+  }
+
+  async function inspectEncodingAcrossTabs() {
+    const artifacts = [];
+    const combined = [];
+    for (const button of Array.from(document.querySelectorAll(".nav-button"))) {
+      button.click();
+      await waitFor(() => document.querySelector(`#${button.dataset.tab}.section.active`));
+      const html = document.documentElement.outerHTML;
+      combined.push(html);
+      const match = html.match(/[\u00c3\u00c2\ufffd]/);
+      if (match) artifacts.push({ tab: button.dataset.tab, char: match[0] });
+    }
+    const all = combined.join("\n");
+    const expected = [
+      "Impresión",
+      "Imprimir año completo",
+      "Libre disposición",
+      "Configuración",
+      "Cálculo",
+      "Año",
+      "Enfermería",
+      "Atención Integrada",
+      "Planificación",
+      "Simulación",
+    ];
+    const missing = expected.filter((text) => !all.includes(text));
+    document.querySelector('[data-tab="cuadrante"]').click();
+    await waitFor(() => document.querySelector("#cuadrante.section.active"));
+    return { ok: artifacts.length === 0 && missing.length === 0, artifacts, missing };
   }
 
   async function exerciseIncidenceModal() {
