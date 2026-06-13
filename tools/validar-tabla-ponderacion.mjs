@@ -28,7 +28,7 @@ validations.push({ name: "Secuencia continua 0-145", ok: jsonRows.every((row, in
 validations.push({ name: "Fila 42 jornada_realizar = 1491", ok: jsonRows[42]?.jornada_realizar === 1491 });
 
 const rowReports = [];
-for (let noches = 0; noches <= 146; noches += 1) {
+for (let noches = 0; noches <= 145; noches += 1) {
   const jsonRow = jsonRows.find((row) => row.numero_noches === noches);
   const csvRow = csvRows.find((row) => Number(row.numero_noches) === noches);
   if (!jsonRow || !csvRow) {
@@ -46,7 +46,7 @@ await fs.writeFile(reportPath, report, "utf8");
 if (failed.length || rowReports.some((row) => row.estado === "error")) {
   throw new Error(`Table validation failed: ${failed.map((item) => item.name).join(", ")}`);
 }
-console.log("Validated ponderacion table. Rows 0-145 valid; row 146 pending because source has 0-145.");
+console.log("Validated ponderacion table. Rows 0-145 valid. Source includes 146 rows of ponderacion.");
 
 function checkHash(file, raw) {
   const hash = crypto.createHash("sha256").update(raw).digest("hex");
@@ -69,8 +69,8 @@ function buildReport(validations, rows) {
 
 - Fuente JSON: \`normativa_tmp/ponderacion_jornada_sescam_2019.json\`.
 - Fuente CSV: \`normativa_tmp/ponderacion_jornada_sescam_2019.csv\`.
-- Filas disponibles en la fuente adjunta: 146, desde 0 hasta 145 noches.
-- Fila 146: pendiente, no incluida en la fuente adjunta.
+- La fuente validada incluye 146 filas de ponderación, desde 0 hasta 145 noches.
+- Rango válido de la tabla: 0-145 noches.
 
 ## Comprobaciones
 

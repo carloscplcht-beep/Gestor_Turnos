@@ -14,7 +14,7 @@ export function imprimirCuadranteMensual(state, calendario, selectedMonth) {
     subtitle: `${PRINT_MESES[selectedMonth]} ${state.config.anioActivo}`,
     meta: metadatosBase(state, [
       ["Mes", PRINT_MESES[selectedMonth]],
-      ["Fecha de impresion", fechaHoraImpresion()],
+      ["Fecha de impresión", fechaHoraImpresion()],
     ]),
     body: `
       ${tablaCuadranteMes(state, calendario, selectedMonth)}
@@ -28,7 +28,7 @@ export function imprimirCuadranteAnual(state, calendario) {
   const paginas = PRINT_MESES.map((mes, month) => `
     <section class="print-page month-block">
       ${cabeceraInstitucional("Cuadrante anual de turnos", mes)}
-      ${metadataGrid(metadatosBase(state, [["Mes", mes], ["Fecha de impresion", fechaHoraImpresion()]]))}
+      ${metadataGrid(metadatosBase(state, [["Mes", mes], ["Fecha de impresión", fechaHoraImpresion()]]))}
       ${tablaCuadranteMes(state, calendario, month, { compact: true })}
       ${firmaBloque()}
     </section>
@@ -40,8 +40,9 @@ export function imprimirResumenGeneral(state, calendario, resumenes) {
   const html = printDocument({
     title: "Resumen general de jornada",
     subtitle: String(state.config.anioActivo),
-    meta: metadatosBase(state, [["Fecha de impresion", fechaHoraImpresion()]]),
+    meta: metadatosBase(state, [["Fecha de impresión", fechaHoraImpresion()]]),
     body: `
+      ${notaResumenJornada()}
       ${tablaResumenGeneral(state, calendario, resumenes)}
       ${firmaBloque()}
     `,
@@ -52,7 +53,7 @@ export function imprimirResumenGeneral(state, calendario, resumenes) {
 export function imprimirResumenIndividual(state, calendario, resumenes, profesionalId) {
   const profesional = state.profesionales.find((item) => item.id === profesionalId) || obtenerProfesionalesOrdenados(state.profesionales)[0];
   if (!profesional) {
-    alert("No hay profesionales disponibles para imprimir.");
+    console.warn("No hay profesionales disponibles para imprimir.");
     return;
   }
   const resumen = resumenes.find((item) => item.profesionalId === profesional.id);
@@ -61,10 +62,11 @@ export function imprimirResumenIndividual(state, calendario, resumenes, profesio
     subtitle: profesional.nombre || profesional.identificador,
     meta: metadatosBase(state, [
       ["Profesional", profesional.nombre || profesional.identificador],
-      ["Fecha de impresion", fechaHoraImpresion()],
+      ["Fecha de impresión", fechaHoraImpresion()],
     ]),
     body: `
       ${tablaPlanillaIndividual(state, calendario, profesional)}
+      ${notaResumenJornada()}
       ${resumenIndividual(state, calendario, profesional, resumen)}
       ${firmaBloque({ individual: true })}
     `,
@@ -76,23 +78,23 @@ export function generarHtmlImpresionParaPruebas(tipo, state, calendario, resumen
   if (tipo === "mes") return printDocument({
     title: "Cuadrante mensual de turnos",
     subtitle: `${PRINT_MESES[selectedMonth]} ${state.config.anioActivo}`,
-    meta: metadatosBase(state, [["Mes", PRINT_MESES[selectedMonth]], ["Fecha de impresion", fechaHoraImpresion()]]),
+    meta: metadatosBase(state, [["Mes", PRINT_MESES[selectedMonth]], ["Fecha de impresión", fechaHoraImpresion()]]),
     body: `${tablaCuadranteMes(state, calendario, selectedMonth)}${firmaBloque()}`,
   });
-  if (tipo === "anio") return `<div class="print-document annual-document">${PRINT_MESES.map((mes, month) => `<section class="print-page month-block">${cabeceraInstitucional("Cuadrante anual de turnos", mes)}${metadataGrid(metadatosBase(state, [["Mes", mes], ["Fecha de impresion", fechaHoraImpresion()]]))}${tablaCuadranteMes(state, calendario, month, { compact: true })}${firmaBloque()}</section>`).join("")}</div>`;
+  if (tipo === "anio") return `<div class="print-document annual-document">${PRINT_MESES.map((mes, month) => `<section class="print-page month-block">${cabeceraInstitucional("Cuadrante anual de turnos", mes)}${metadataGrid(metadatosBase(state, [["Mes", mes], ["Fecha de impresión", fechaHoraImpresion()]]))}${tablaCuadranteMes(state, calendario, month, { compact: true })}${firmaBloque()}</section>`).join("")}</div>`;
   if (tipo === "general") return printDocument({
     title: "Resumen general de jornada",
     subtitle: String(state.config.anioActivo),
-    meta: metadatosBase(state, [["Fecha de impresion", fechaHoraImpresion()]]),
-    body: `${tablaResumenGeneral(state, calendario, resumenes)}${firmaBloque()}`,
+    meta: metadatosBase(state, [["Fecha de impresión", fechaHoraImpresion()]]),
+    body: `${notaResumenJornada()}${tablaResumenGeneral(state, calendario, resumenes)}${firmaBloque()}`,
   });
   const profesional = state.profesionales.find((item) => item.id === profesionalId) || state.profesionales[0];
   const resumen = resumenes.find((item) => item.profesionalId === profesional?.id);
   return printDocument({
     title: "Planilla individual anual",
     subtitle: profesional?.nombre || "",
-    meta: metadatosBase(state, [["Profesional", profesional?.nombre || ""], ["Fecha de impresion", fechaHoraImpresion()]]),
-    body: `${tablaPlanillaIndividual(state, calendario, profesional)}${resumenIndividual(state, calendario, profesional, resumen)}${firmaBloque({ individual: true })}`,
+    meta: metadatosBase(state, [["Profesional", profesional?.nombre || ""], ["Fecha de impresión", fechaHoraImpresion()]]),
+    body: `${tablaPlanillaIndividual(state, calendario, profesional)}${notaResumenJornada()}${resumenIndividual(state, calendario, profesional, resumen)}${firmaBloque({ individual: true })}`,
   });
 }
 
@@ -143,7 +145,7 @@ function cabeceraInstitucional(title, subtitle = "") {
 function metadatosBase(state, extra = []) {
   return [
     ["Unidad", state.config.unidad || ""],
-    ["Anio", state.config.anioActivo || ""],
+    ["Año", state.config.anioActivo || ""],
     ["Perfil normativo", PERFIL_NORMATIVO_SESCAM_2019.nombre],
     ...extra,
   ];
@@ -214,11 +216,15 @@ function tablaResumenGeneral(state, calendario, resumenes) {
   return `
     <div class="print-table-wrap">
       <table class="print-table print-summary-table">
-        <thead><tr><th>Profesional</th><th>Modalidad</th><th>Objetivo</th><th>Programadas</th><th>Diferencia</th><th>Noches</th><th>Mananas</th><th>Tardes</th><th>Noches</th><th>12 h</th><th>Libres</th><th>Observaciones</th></tr></thead>
+        <thead><tr><th>Profesional</th><th>Modalidad</th><th>Objetivo</th><th>Programadas</th><th>Diferencia</th><th>Noches</th><th>Mañanas</th><th>Tardes</th><th>Noches</th><th>12 h</th><th>Libres</th><th>Observaciones</th></tr></thead>
         <tbody>${rows || printEmptyRow(12)}</tbody>
       </table>
     </div>
   `;
+}
+
+function notaResumenJornada() {
+  return `<p class="print-note">Las horas base previstas corresponden al turno originalmente proyectado. Vacaciones y libre disposición se descuentan como ausencia sobre ese turno; las horas efectivas reflejan la jornada programada tras aplicarlas.</p>`;
 }
 
 function tablaPlanillaIndividual(state, calendario, profesional) {
@@ -259,7 +265,7 @@ function resumenIndividual(state, calendario, profesional, resumen) {
   const items = [
     ["Profesional", profesional.nombre || profesional.identificador],
     ["Unidad", state.config.unidad || ""],
-    ["Anio", state.config.anioActivo || ""],
+    ["Año", state.config.anioActivo || ""],
     ["Modalidad", modalidad],
     ["Jornada objetivo", `${printFmt(resumen?.jornada?.objetivo)} h`],
     ["Horas programadas", `${printFmt(resumen?.total)} h`],
@@ -267,7 +273,7 @@ function resumenIndividual(state, calendario, profesional, resumen) {
     ["Noches", resumen?.noches ?? 0],
     ["Turnos D12", conteos.d12],
     ["Turnos N12", conteos.n12],
-    ["Mananas", conteos.mananas],
+    ["Mañanas", conteos.mananas],
     ["Tardes", conteos.tardes],
     ["Libres", conteos.libres],
     ["Observaciones", observaciones],
@@ -281,7 +287,7 @@ function firmaBloque({ individual = false } = {}) {
     : ["Firma de la supervision / responsable:", "Visto bueno:"];
   return `
     <footer class="print-signature">
-      <p>Fecha de impresion: ${printEscapeHtml(fechaHoraImpresion())}</p>
+      <p>Fecha de impresión: ${printEscapeHtml(fechaHoraImpresion())}</p>
       <div class="signature-lines">
         ${lineas.map((label) => `<div><span>${printEscapeHtml(label)}</span><strong></strong></div>`).join("")}
       </div>
@@ -335,7 +341,7 @@ function printFmt(value) {
 }
 
 function printEmptyRow(cols) {
-  return `<tr><td colspan="${cols}">Sin datos todavia.</td></tr>`;
+  return `<tr><td colspan="${cols}">Sin datos todavía.</td></tr>`;
 }
 
 function printEscapeHtml(value) {

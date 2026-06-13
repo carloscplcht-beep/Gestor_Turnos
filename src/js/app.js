@@ -19,8 +19,15 @@ let calendario = {};
 let resumenes = [];
 let runtimeNotice = "";
 let runtimeNoticeKind = "warn";
+let incidenceModal = null;
 
 const root = document.getElementById("app");
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || !incidenceModal) return;
+  incidenceModal = null;
+  recalcAndRender();
+});
 
 init();
 
@@ -36,7 +43,7 @@ async function init() {
       runtimeNoticeKind = "warn";
     }
   } catch (error) {
-    runtimeNotice = `No se pudo abrir IndexedDB. La aplicacion funciona en memoria durante esta sesion: ${error.message}`;
+    runtimeNotice = `No se pudo abrir IndexedDB. La aplicación funciona en memoria durante esta sesión: ${error.message}`;
     runtimeNoticeKind = "warn";
   }
   recalcAndRender();
@@ -47,7 +54,7 @@ function recalcAndRender() {
   calendario = generarCalendarioAnual(state);
   resumenes = calcularResumenGlobal(state, calendario);
   globalThis.gestorTurnosDiagnostico = (profesionalId, fechaConsultada) => diagnosticarTurnoProfesional(state, profesionalId, fechaConsultada);
-  renderApp(root, state, calendario, resumenes, activeTab, selectedMonth, runtimeNotice, runtimeNoticeKind);
+  renderApp(root, state, calendario, resumenes, activeTab, selectedMonth, runtimeNotice, runtimeNoticeKind, incidenceModal);
   bindEvents();
 }
 
@@ -89,7 +96,7 @@ function bindEvents() {
     const errores = validarProfesional(data);
     if (errores.length) return notify(errores.join(" "), true);
     const existing = state.profesionales.find((item) => item.id === data.id);
-    if (existing && profesionalTieneIncidencias(existing.id) && cambiaBaseProfesional(existing, data) && !confirm("Este profesional tiene vacaciones o libre disposicion registrados. Si cambia ciclo o fechas, se mantendran las incidencias pero pueden cambiar las horas descontadas. ¿Desea continuar?")) return;
+    if (existing && profesionalTieneIncidencias(existing.id) && cambiaBaseProfesional(existing, data) && !confirm("Este profesional tiene vacaciones o libre disposición registradas. Si cambia ciclo o fechas, se mantendrán las incidencias pero pueden cambiar las horas descontadas. ¿Desea continuar?")) return;
     const payload = {
       ...(existing || crearProfesionalBase(state)),
       ...data,
@@ -131,7 +138,7 @@ function bindEvents() {
     try {
       const codigos = parsearSecuencia(data.secuencia).map((codigo) => codigo.toUpperCase());
       const existing = state.ciclos.find((item) => item.id === data.id);
-      if (existing && cicloTieneIncidencias(existing.id) && !confirm("Este ciclo tiene incidencias asociadas a profesionales. Al cambiar la secuencia se mantendran V/LD, pero pueden cambiar las horas descontadas segun el nuevo turno base. ¿Desea continuar?")) return;
+      if (existing && cicloTieneIncidencias(existing.id) && !confirm("Este ciclo tiene incidencias asociadas a profesionales. Al cambiar la secuencia se mantendrán V/LD, pero pueden cambiar las horas descontadas según el nuevo turno base. ¿Desea continuar?")) return;
       if (existing) Object.assign(existing, { nombre: data.nombre, codigos });
       else state.ciclos.push(crearCiclo(data.nombre, codigos, state.turnos));
       await persist();
@@ -154,6 +161,20 @@ function bindEvents() {
 
   root.querySelectorAll("[data-action]").forEach((element) => {
     element.addEventListener("click", handleAction);
+  });
+
+  root.querySelectorAll("[name='incidenceAction']").forEach((input) => {
+    input.addEventListener("change", () => {
+      if (!incidenceModal) return;
+      incidenceModal = crearDatosModalIncidencia(incidenceModal.profesionalId, incidenceModal.fecha, input.value, false);
+      recalcAndRender();
+    });
+  });
+
+  root.querySelector("#incidenceExcessConfirm")?.addEventListener("change", (event) => {
+    if (!incidenceModal) return;
+    incidenceModal = { ...incidenceModal, confirmaExceso: event.target.checked };
+    recalcAndRender();
   });
 }
 
@@ -178,7 +199,14 @@ async function handleAction(event) {
     return imprimirResumenIndividual(state, calendario, resumenes, profesionalId);
   }
   if (action === "edit-incidencia") {
-    await editarIncidenciaCelda(id, event.currentTarget.dataset.fecha);
+    abrirModalIncidencia(id, event.currentTarget.dataset.fecha);
+  }
+  if (action === "close-incidence-modal") {
+    incidenceModal = null;
+    recalcAndRender();
+  }
+  if (action === "confirm-incidence-modal") {
+    await confirmarIncidenciaModal();
   }
   if (action === "edit-prof") return fillForm("profesionalForm", state.profesionales.find((item) => item.id === id));
   if (action === "move-prof-up") {
@@ -199,7 +227,7 @@ async function handleAction(event) {
     normalizarOrdenProfesionales(state.profesionales);
     await persist();
   }
-  if (action === "delete-turno" && confirm("¿Eliminar o desactivar turno? Si esta en uso se desactivara.")) {
+  if (action === "delete-turno" && confirm("¿Eliminar o desactivar turno? Si está en uso se desactivará.")) {
     const enUso = state.ciclos.some((ciclo) => ciclo.codigos.includes(state.turnos.find((t) => t.id === id)?.codigo));
     if (enUso) state.turnos.find((item) => item.id === id).activo = false;
     else state.turnos = state.turnos.filter((item) => item.id !== id);
@@ -220,7 +248,7 @@ async function handleAction(event) {
   }
   if (action === "open-import-json") root.querySelector("#importJson")?.click();
   if (action === "reset-data") {
-    if (confirm("Primera confirmacion: se sustituiran los datos locales.") && confirm("Segunda confirmacion: ¿restablecer datos iniciales?")) {
+    if (confirm("Primera confirmación: se sustituirán los datos locales.") && confirm("Segunda confirmación: ¿restablecer datos iniciales?")) {
       await clearState();
       state = normalizarEstado(crearEstadoInicial());
       await persist();
@@ -260,14 +288,14 @@ async function recalcularCuadranteDesdeIndexedDb() {
 
 function validarDatosRecalculo(currentState) {
   const errores = [];
-  if (!Number.isFinite(Number(currentState.config?.anioActivo))) errores.push("El año activo no es valido.");
+  if (!Number.isFinite(Number(currentState.config?.anioActivo))) errores.push("El año activo no es válido.");
   const ciclos = new Set((currentState.ciclos || []).filter((ciclo) => ciclo.activo && !ciclo.archivado).map((ciclo) => ciclo.id));
   for (const profesional of currentState.profesionales || []) {
     const etiqueta = profesional.nombre || profesional.identificador || profesional.id || "Profesional sin identificar";
-    if (!profesional.cicloId || !ciclos.has(profesional.cicloId)) errores.push(`${etiqueta}: ciclo asignado no valido.`);
-    if (!normalizarFechaIso(profesional.fechaInicioCiclo)) errores.push(`${etiqueta}: fecha de inicio de ciclo no valida.`);
-    if (!normalizarFechaIso(profesional.fechaInicio)) errores.push(`${etiqueta}: fecha de inicio de contrato no valida.`);
-    if (!normalizarFechaIso(profesional.fechaFin)) errores.push(`${etiqueta}: fecha de fin de contrato no valida.`);
+    if (!profesional.cicloId || !ciclos.has(profesional.cicloId)) errores.push(`${etiqueta}: ciclo asignado no válido.`);
+    if (!normalizarFechaIso(profesional.fechaInicioCiclo)) errores.push(`${etiqueta}: fecha de inicio de ciclo no válida.`);
+    if (!normalizarFechaIso(profesional.fechaInicio)) errores.push(`${etiqueta}: fecha de inicio de contrato no válida.`);
+    if (!normalizarFechaIso(profesional.fechaFin)) errores.push(`${etiqueta}: fecha de fin de contrato no válida.`);
     if (profesional.fechaInicio && profesional.fechaFin && normalizarFechaIso(profesional.fechaInicio) && normalizarFechaIso(profesional.fechaFin) && profesional.fechaFin < profesional.fechaInicio) {
       errores.push(`${etiqueta}: fechas de contrato invertidas.`);
     }
@@ -278,7 +306,7 @@ function validarDatosRecalculo(currentState) {
 function imprimirDiagnosticoRecalculo() {
   const diagnostico = calcularDiagnosticoProyeccion(state);
   const fechaConsultada = diagnostico[0]?.fechaConsultada || `${Number(state.config.anioActivo)}-${String(selectedMonth + 1).padStart(2, "0")}-01`;
-  console.info(`Recalculo cuadrante ${fechaConsultada}`, diagnostico);
+  console.info(`Recálculo cuadrante ${fechaConsultada}`, diagnostico);
 }
 
 function calcularDiagnosticoProyeccion(currentState) {
@@ -300,41 +328,92 @@ function calcularDiagnosticoProyeccion(currentState) {
   });
 }
 
-async function editarIncidenciaCelda(profesionalId, fecha) {
+function abrirModalIncidencia(profesionalId, fecha) {
   const profesional = state.profesionales.find((item) => item.id === profesionalId);
   const diaBase = calendario[profesionalId]?.[fecha];
-  if (!profesional || !diaBase?.codigo || diaBase.fueraContrato || diaBase.sinCiclo) return notify("No se puede aplicar una incidencia en una celda sin turno generado o fuera de contrato.", true);
+  if (!profesional || !diaBase?.codigo || diaBase.fueraContrato || diaBase.sinCiclo) {
+    return notify("No se puede aplicar una incidencia en una celda sin turno generado o fuera de contrato.", true);
+  }
   const actual = state.incidenciasDiarias.find((item) => item.profesionalId === profesionalId && item.fecha === fecha);
-  const opciones = [
-    `${diaBase.codigo} - Mantener turno original`,
-    "V - Vacaciones",
-    "LD - Libre disposicion",
-  ].join("\n");
-  const respuesta = prompt(`Seleccione una opcion para ${profesional.nombre} el ${fecha}:\n\n${opciones}\n\nEscriba: ${diaBase.codigo}, V o LD`, actual?.tipoIncidencia || diaBase.codigo);
-  if (respuesta === null) return;
-  const opcion = respuesta.trim().toUpperCase();
-  if (!opcion || opcion === diaBase.codigo.toUpperCase() || opcion === "MANTENER") {
+  incidenceModal = crearDatosModalIncidencia(profesionalId, fecha, actual?.tipoIncidencia || "original", false);
+  recalcAndRender();
+  setTimeout(() => root.querySelector("[data-action='confirm-incidence-modal']")?.focus(), 0);
+}
+
+function crearDatosModalIncidencia(profesionalId, fecha, accion = "original", confirmaExceso = false, error = "") {
+  const profesional = state.profesionales.find((item) => item.id === profesionalId);
+  const diaBase = calendario[profesionalId]?.[fecha] || {};
+  const actual = state.incidenciasDiarias.find((item) => item.profesionalId === profesionalId && item.fecha === fecha) || null;
+  const vacaciones = calcularSaldoIncidencia(profesional, "V", diaBase, actual);
+  const libreDisposicion = calcularSaldoIncidencia(profesional, "LD", diaBase, actual);
+  const saldoSeleccionado = accion === "V" ? vacaciones : accion === "LD" ? libreDisposicion : null;
+  const horasTurno = Number(diaBase.horas || 0);
+  const excesoSeleccionado = saldoSeleccionado ? Math.max(0, horasTurno - Math.max(0, saldoSeleccionado.pendientes)) : 0;
+  return {
+    profesionalId,
+    fecha,
+    profesionalNombre: profesional?.nombre || profesional?.identificador || "",
+    turnoPrevisto: diaBase.codigo || "",
+    horasTurno,
+    accion,
+    confirmaExceso,
+    error,
+    vacaciones,
+    libreDisposicion,
+    excesoSeleccionado: redondearHoras(excesoSeleccionado),
+  };
+}
+
+function calcularSaldoIncidencia(profesional, tipoIncidencia, diaBase, incidenciaActual = null) {
+  const derechos = calcularDerechosAusencias(profesional, state.config);
+  const usadoActual = calcularUsoActualIncidencias(state, calendario, profesional.id, tipoIncidencia);
+  const restaActual = incidenciaActual?.tipoIncidencia === tipoIncidencia ? Number(diaBase?.horas || incidenciaActual.horasTurnoBase || 0) : 0;
+  const utilizadoSinCelda = redondearHoras(usadoActual - restaActual);
+  const derecho = tipoIncidencia === "V" ? derechos.vacaciones : derechos.libreDisposicion;
+  return {
+    derecho,
+    utilizadas: utilizadoSinCelda,
+    pendientes: redondearHoras(Math.max(0, derecho - utilizadoSinCelda)),
+  };
+}
+
+async function confirmarIncidenciaModal() {
+  if (!incidenceModal) return;
+  const { profesionalId, fecha, accion } = incidenceModal;
+  const profesional = state.profesionales.find((item) => item.id === profesionalId);
+  const diaBase = calendario[profesionalId]?.[fecha];
+  if (!profesional || !diaBase?.codigo || diaBase.fueraContrato || diaBase.sinCiclo) {
+    incidenceModal = crearDatosModalIncidencia(profesionalId, fecha, accion, false, "No se puede aplicar una incidencia en una celda sin turno generado o fuera de contrato.");
+    recalcAndRender();
+    return;
+  }
+  if (accion === "original") {
     eliminarIncidencia(state, profesionalId, fecha);
+    incidenceModal = null;
     await persist();
     return;
   }
-  if (!TIPOS_INCIDENCIA[opcion]) return notify("Opcion no valida. Use V, LD o el codigo del turno original.", true);
-  if (!confirmarExcesoBolsa(profesional, opcion, Number(diaBase.horas || 0), actual)) return;
-  aplicarIncidencia(state, profesional, diaBase, opcion);
+  if (!TIPOS_INCIDENCIA[accion]) {
+    incidenceModal = crearDatosModalIncidencia(profesionalId, fecha, "original", false, "Seleccione una opción válida.");
+    recalcAndRender();
+    return;
+  }
+  const datosActualizados = crearDatosModalIncidencia(profesionalId, fecha, accion, incidenceModal.confirmaExceso);
+  if (datosActualizados.excesoSeleccionado > 0 && !datosActualizados.confirmaExceso) {
+    incidenceModal = {
+      ...datosActualizados,
+      error: `La incidencia supera el saldo disponible en ${datosActualizados.excesoSeleccionado} h. Marque la confirmación para continuar.`,
+    };
+    recalcAndRender();
+    return;
+  }
+  aplicarIncidencia(state, profesional, diaBase, accion);
+  incidenceModal = null;
   await persist();
 }
 
-function confirmarExcesoBolsa(profesional, tipoIncidencia, horasTurno, incidenciaActual = null) {
-  const derechos = calcularDerechosAusencias(profesional, state.config);
-  const usadoActual = calcularUsoActualIncidencias(state, calendario, profesional.id, tipoIncidencia);
-  const restaActual = incidenciaActual?.tipoIncidencia === tipoIncidencia ? Number(calendario[profesional.id]?.[incidenciaActual.fecha]?.horas || incidenciaActual.horasTurnoBase || 0) : 0;
-  const utilizadoSinCelda = usadoActual - restaActual;
-  const derecho = tipoIncidencia === "V" ? derechos.vacaciones : derechos.libreDisposicion;
-  const disponible = derecho - utilizadoSinCelda;
-  if (horasTurno <= disponible) return true;
-  const exceso = horasTurno - Math.max(0, disponible);
-  const nombre = TIPOS_INCIDENCIA[tipoIncidencia].nombre.toLowerCase();
-  return confirm(`Este turno descontara ${horasTurno} horas de ${nombre}.\nSolo quedan ${Math.max(0, disponible)} horas disponibles.\nLa aplicacion registrara un exceso de ${exceso} horas.\n¿Desea continuar?`);
+function redondearHoras(value) {
+  return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 }
 
 function profesionalTieneIncidencias(profesionalId) {
@@ -395,7 +474,7 @@ async function importarJson(event) {
     const payload = JSON.parse(await file.text());
     const { errores, data, resumen } = prepararImportacionBackup(payload);
     if (errores.length) return notify(errores.join(" "), true);
-    if (!confirm(`${formatearResumenImportacion(resumen)}\n\nAntes de importar se descargara una copia de los datos actuales.\n\n¿Sustituir todos los datos actuales?`)) return;
+    if (!confirm(`${formatearResumenImportacion(resumen)}\n\nAntes de importar se descargará una copia de los datos actuales.\n\n¿Sustituir todos los datos actuales?`)) return;
     const copiaActual = await crearCopiaActual();
     descargarJson(crearNombreCopia("gestor-turnos_copia-antes-de-importar"), copiaActual);
     const estadoAnterior = structuredClone(state);
@@ -438,6 +517,7 @@ async function crearCopiaActual() {
 }
 
 function notify(message, isError = false) {
-  const prefix = isError ? "Error" : "Aviso";
-  alert(`${prefix}: ${message}`);
+  runtimeNotice = message;
+  runtimeNoticeKind = isError ? "warn" : "ok";
+  recalcAndRender();
 }

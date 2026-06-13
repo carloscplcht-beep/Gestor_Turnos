@@ -52,4 +52,4 @@
 - La generacion modular coincide con la secuencia del ciclo.
 - Las horas se recalculan al cambiar ciclo, posicion o fechas.
 - La tabla normativa disponible cubre 0 a 145 noches.
-- La fila 146 queda pendiente porque no existe en la fuente adjunta.
+- La fuente validada incluye 146 filas de ponderación, desde 0 hasta 145 noches. El rango válido de la tabla es 0-145 noches.

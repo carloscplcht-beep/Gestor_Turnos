@@ -299,7 +299,14 @@ button:disabled { opacity: .55; cursor: not-allowed; }
   align-items: end;
 }
 .recalculate-button { min-height: 42px; }
+.calendar-help { margin: 10px 0 0; }
 label { display: grid; gap: 6px; color: #4b6478; font-size: 12px; font-weight: 760; }
+.field-help {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 600;
+}
 .checkbox-label {
   display: flex;
   align-items: center;
@@ -323,6 +330,13 @@ input:focus, select:focus, textarea:focus {
   outline: 0;
   border-color: #5aa9c8;
   box-shadow: 0 0 0 4px rgba(90, 169, 200, .16);
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(13, 148, 136, .35);
+  outline-offset: 2px;
 }
 .actions { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
 .turno-palette { align-content: start; margin-top: 20px; }
@@ -388,6 +402,7 @@ tr:last-child td { border-bottom: 0; }
   gap: 6px;
 }
 .summary-toggle { margin-top: 14px; max-width: max-content; }
+.jornada-note { margin-bottom: 14px; }
 .print-panel {
   margin-top: 14px;
   padding: 14px;
@@ -483,6 +498,122 @@ tr:last-child td { border-bottom: 0; }
 .backup-meta strong { color: #344f68; font-size: 12px; }
 .backup-meta span { color: var(--muted); }
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(8, 32, 49, .42);
+}
+
+.modal-card {
+  width: min(720px, 100%);
+  max-height: min(88vh, 820px);
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  box-shadow: 0 28px 70px rgba(8, 32, 49, .28);
+  padding: 18px;
+  animation: panelIn var(--ease);
+}
+
+.modal-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.modal-header h2 { margin: 0; font-size: 20px; }
+.modal-header p { margin: 5px 0 0; color: var(--muted); font-weight: 700; }
+.modal-close { min-width: 0; }
+
+.modal-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.modal-summary div,
+.saldo-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  padding: 12px;
+}
+
+.modal-summary span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 5px;
+}
+
+.modal-summary strong { font-size: 18px; color: var(--primary-dark); }
+
+.incidence-options {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  margin: 0 0 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.incidence-options legend {
+  padding: 0 6px;
+  color: #344f68;
+  font-weight: 820;
+}
+
+.incidence-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 36px;
+  padding: 8px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid transparent;
+}
+
+.incidence-option:has(input:checked) {
+  border-color: #aac8d8;
+  background: var(--primary-soft);
+}
+
+.incidence-option input { width: auto; }
+
+.saldo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.saldo-card h3 { margin: 0 0 10px; font-size: 15px; }
+.saldo-card dl { margin: 0; display: grid; gap: 7px; }
+.saldo-card div { display: flex; justify-content: space-between; gap: 8px; }
+.saldo-card dt { color: var(--muted); font-weight: 760; }
+.saldo-card dd { margin: 0; font-weight: 820; color: var(--text); }
+.modal-warning { margin-bottom: 12px; }
+.excess-confirm { margin: 0 0 14px; align-items: start; }
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
 .app-footer {
   padding: 18px 24px 24px;
   color: #62748a;
@@ -520,6 +651,7 @@ tr:last-child td { border-bottom: 0; }
   }
 
   #app { display: none !important; }
+  .modal-backdrop { display: none !important; }
   .print-root {
     display: block !important;
     background: #fff;
@@ -613,6 +745,16 @@ tr:last-child td { border-bottom: 0; }
   .print-table-wrap {
     overflow: visible;
     border: 1px solid #b8c7d2;
+  }
+
+  .print-note {
+    margin: 0 0 4mm;
+    padding: 2mm;
+    border: 1px solid #d2dde5;
+    background: #f7fafc;
+    color: #344f68;
+    font-size: 9px;
+    line-height: 1.35;
   }
 
   .print-table {

@@ -306,7 +306,14 @@ button:disabled { opacity: .55; cursor: not-allowed; }
   align-items: end;
 }
 .recalculate-button { min-height: 42px; }
+.calendar-help { margin: 10px 0 0; }
 label { display: grid; gap: 6px; color: #4b6478; font-size: 12px; font-weight: 760; }
+.field-help {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 600;
+}
 .checkbox-label {
   display: flex;
   align-items: center;
@@ -330,6 +337,13 @@ input:focus, select:focus, textarea:focus {
   outline: 0;
   border-color: #5aa9c8;
   box-shadow: 0 0 0 4px rgba(90, 169, 200, .16);
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(13, 148, 136, .35);
+  outline-offset: 2px;
 }
 .actions { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
 .turno-palette { align-content: start; margin-top: 20px; }
@@ -395,6 +409,7 @@ tr:last-child td { border-bottom: 0; }
   gap: 6px;
 }
 .summary-toggle { margin-top: 14px; max-width: max-content; }
+.jornada-note { margin-bottom: 14px; }
 .print-panel {
   margin-top: 14px;
   padding: 14px;
@@ -490,6 +505,122 @@ tr:last-child td { border-bottom: 0; }
 .backup-meta strong { color: #344f68; font-size: 12px; }
 .backup-meta span { color: var(--muted); }
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(8, 32, 49, .42);
+}
+
+.modal-card {
+  width: min(720px, 100%);
+  max-height: min(88vh, 820px);
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  box-shadow: 0 28px 70px rgba(8, 32, 49, .28);
+  padding: 18px;
+  animation: panelIn var(--ease);
+}
+
+.modal-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.modal-header h2 { margin: 0; font-size: 20px; }
+.modal-header p { margin: 5px 0 0; color: var(--muted); font-weight: 700; }
+.modal-close { min-width: 0; }
+
+.modal-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.modal-summary div,
+.saldo-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  padding: 12px;
+}
+
+.modal-summary span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 5px;
+}
+
+.modal-summary strong { font-size: 18px; color: var(--primary-dark); }
+
+.incidence-options {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  margin: 0 0 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.incidence-options legend {
+  padding: 0 6px;
+  color: #344f68;
+  font-weight: 820;
+}
+
+.incidence-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 36px;
+  padding: 8px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid transparent;
+}
+
+.incidence-option:has(input:checked) {
+  border-color: #aac8d8;
+  background: var(--primary-soft);
+}
+
+.incidence-option input { width: auto; }
+
+.saldo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.saldo-card h3 { margin: 0 0 10px; font-size: 15px; }
+.saldo-card dl { margin: 0; display: grid; gap: 7px; }
+.saldo-card div { display: flex; justify-content: space-between; gap: 8px; }
+.saldo-card dt { color: var(--muted); font-weight: 760; }
+.saldo-card dd { margin: 0; font-weight: 820; color: var(--text); }
+.modal-warning { margin-bottom: 12px; }
+.excess-confirm { margin: 0 0 14px; align-items: start; }
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
 .app-footer {
   padding: 18px 24px 24px;
   color: #62748a;
@@ -527,6 +658,7 @@ tr:last-child td { border-bottom: 0; }
   }
 
   #app { display: none !important; }
+  .modal-backdrop { display: none !important; }
   .print-root {
     display: block !important;
     background: #fff;
@@ -620,6 +752,16 @@ tr:last-child td { border-bottom: 0; }
   .print-table-wrap {
     overflow: visible;
     border: 1px solid #b8c7d2;
+  }
+
+  .print-note {
+    margin: 0 0 4mm;
+    padding: 2mm;
+    border: 1px solid #d2dde5;
+    background: #f7fafc;
+    color: #344f68;
+    font-size: 9px;
+    line-height: 1.35;
   }
 
   .print-table {
@@ -2660,7 +2802,7 @@ const TIPOS_INCIDENCIA = {
   },
   LD: {
     codigo: "LD",
-    nombre: "Libre disposicion",
+    nombre: "Libre disposición",
     campoHoras: "horasLibreDisposicion",
     campoBolsa: "bolsaLibreDisposicionHoras",
     color: "#e8ddf7",
@@ -3211,7 +3353,7 @@ async function readStore(db, storeName) {
 const BACKUP_APPLICATION_NAME = "Gestor Local de Turnos de Enfermería";
 const BACKUP_LEGACY_APP_ID = "gestor-turnos-enfermeria";
 const BACKUP_SCHEMA_VERSION = 1;
-const APP_VERSION = "0.1";
+const APP_VERSION = "0.1.1";
 
 function crearBackup(state, databaseSnapshot = null, exportedAt = new Date().toISOString()) {
   const data = migrarEstado(structuredClone(state));
@@ -3251,15 +3393,15 @@ function crearNombreCopia(prefijo = "gestor-turnos_copia", date = new Date()) {
 
 function validarBackup(payload) {
   const errores = [];
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return ["El archivo no contiene una copia JSON valida."];
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return ["El archivo no contiene una copia JSON válida."];
 
   if (!("schemaVersion" in payload)) errores.push("Falta schemaVersion en la copia.");
-  else if (Number(payload.schemaVersion) !== BACKUP_SCHEMA_VERSION) errores.push(`Version de esquema incompatible. Esperada: ${BACKUP_SCHEMA_VERSION}. Encontrada: ${payload.schemaVersion}.`);
+  else if (Number(payload.schemaVersion) !== BACKUP_SCHEMA_VERSION) errores.push(`Versión de esquema incompatible. Esperada: ${BACKUP_SCHEMA_VERSION}. Encontrada: ${payload.schemaVersion}.`);
 
   const application = payload.application || payload.app;
-  if (application !== BACKUP_APPLICATION_NAME && application !== BACKUP_LEGACY_APP_ID) errores.push("La copia no corresponde a esta aplicacion.");
-  if (!payload.exportedAt || Number.isNaN(Date.parse(payload.exportedAt))) errores.push("La fecha de exportacion no es valida.");
-  if (!payload.data || typeof payload.data !== "object" || Array.isArray(payload.data)) errores.push("La estructura de datos esta incompleta.");
+  if (application !== BACKUP_APPLICATION_NAME && application !== BACKUP_LEGACY_APP_ID) errores.push("La copia no corresponde a esta aplicación.");
+  if (!payload.exportedAt || Number.isNaN(Date.parse(payload.exportedAt))) errores.push("La fecha de exportación no es válida.");
+  if (!payload.data || typeof payload.data !== "object" || Array.isArray(payload.data)) errores.push("La estructura de datos está incompleta.");
   if (errores.length) return errores;
 
   validarEstado(payload.data, errores);
@@ -3302,8 +3444,8 @@ function formatearResumenImportacion(resumen) {
   const fecha = resumen.exportedAt ? new Date(resumen.exportedAt).toLocaleString("es-ES") : "No indicada";
   return [
     `Copia creada: ${fecha}`,
-    `Version del esquema: ${resumen.schemaVersion}`,
-    `Version de la aplicacion: ${resumen.appVersion}`,
+    `Versión del esquema: ${resumen.schemaVersion}`,
+    `Versión de la aplicación: ${resumen.appVersion}`,
     `Unidades: ${resumen.unidades}`,
     `Unidad: ${resumen.unidadPrincipal}`,
     `Profesionales: ${resumen.profesionales}`,
@@ -3311,7 +3453,7 @@ function formatearResumenImportacion(resumen) {
     `Ciclos: ${resumen.ciclos}`,
     `Año activo: ${resumen.anios.join(", ") || "No indicado"}`,
     "",
-    "La importacion sustituira los datos almacenados actualmente en este navegador.",
+    "La importación sustituirá los datos almacenados actualmente en este navegador.",
   ].join("\n");
 }
 
@@ -3323,7 +3465,7 @@ async function sustituirEstadoConRollback({ estadoActual, estadoNuevo, guardarEs
     try {
       await guardarEstado(estadoActual);
     } catch {
-      // La escritura original fallo antes de confirmar el nuevo estado; se mantiene el error principal.
+      // La escritura original falló antes de confirmar el nuevo estado; se mantiene el error principal.
     }
     throw new Error(`No se pudo importar la copia. Se mantienen los datos anteriores. ${error.message}`);
   }
@@ -3340,14 +3482,14 @@ function descargarJson(nombre, data) {
 }
 
 function validarEstado(data, errores) {
-  if (!data.config || typeof data.config !== "object") errores.push("Falta la configuracion general.");
-  if (!Array.isArray(data.profesionales)) errores.push("La lista de profesionales no es valida.");
-  if (!Array.isArray(data.turnos)) errores.push("La lista de turnos no es valida.");
-  if (!Array.isArray(data.ciclos)) errores.push("La lista de ciclos no es valida.");
-  if (data.incidenciasDiarias && !Array.isArray(data.incidenciasDiarias)) errores.push("La lista de incidencias diarias no es valida.");
+  if (!data.config || typeof data.config !== "object") errores.push("Falta la configuración general.");
+  if (!Array.isArray(data.profesionales)) errores.push("La lista de profesionales no es válida.");
+  if (!Array.isArray(data.turnos)) errores.push("La lista de turnos no es válida.");
+  if (!Array.isArray(data.ciclos)) errores.push("La lista de ciclos no es válida.");
+  if (data.incidenciasDiarias && !Array.isArray(data.incidenciasDiarias)) errores.push("La lista de incidencias diarias no es válida.");
   if (errores.length) return;
 
-  if (!Number.isFinite(Number(data.config.anioActivo))) errores.push("El ano activo no es valido.");
+  if (!Number.isFinite(Number(data.config.anioActivo))) errores.push("El año activo no es válido.");
   validarDuplicados(data.profesionales, "profesionales", errores);
   validarDuplicados(data.turnos, "turnos", errores);
   validarDuplicados(data.ciclos, "ciclos", errores);
@@ -3355,12 +3497,12 @@ function validarEstado(data, errores) {
   const codigosTurno = new Set();
   for (const turno of data.turnos) {
     if (!turno.id) errores.push("Hay un turno sin identificador.");
-    if (!turno.codigo) errores.push("Hay un turno sin codigo.");
+    if (!turno.codigo) errores.push("Hay un turno sin código.");
     const codigo = String(turno.codigo || "").toUpperCase();
-    if (codigosTurno.has(codigo)) errores.push(`Codigo de turno duplicado: ${codigo}.`);
+    if (codigosTurno.has(codigo)) errores.push(`Código de turno duplicado: ${codigo}.`);
     codigosTurno.add(codigo);
-    if (!/^#[0-9a-f]{6}$/i.test(String(turno.color || ""))) errores.push(`Color no valido en turno ${codigo || turno.id}.`);
-    if (!Number.isFinite(Number(turno.horasComputables)) || Number(turno.horasComputables) < 0) errores.push(`Horas no validas en turno ${codigo || turno.id}.`);
+    if (!/^#[0-9a-f]{6}$/i.test(String(turno.color || ""))) errores.push(`Color no válido en turno ${codigo || turno.id}.`);
+    if (!Number.isFinite(Number(turno.horasComputables)) || Number(turno.horasComputables) < 0) errores.push(`Horas no válidas en turno ${codigo || turno.id}.`);
     if ("cuentaComoPresencia" in turno && typeof turno.cuentaComoPresencia !== "boolean") errores.push(`El turno ${codigo || turno.id} no define correctamente cuentaComoPresencia.`);
   }
 
@@ -3378,21 +3520,21 @@ function validarEstado(data, errores) {
     if (!profesional.id) errores.push("Hay un profesional sin identificador.");
     if (!profesional.nombre && !profesional.identificador) errores.push(`El profesional ${profesional.id || "sin id"} no tiene nombre ni identificador.`);
     if (profesional.cicloId && !ciclos.has(profesional.cicloId)) errores.push(`El profesional ${profesional.nombre || profesional.id} referencia un ciclo inexistente.`);
-    validarFecha(profesional.fechaInicio, `Fecha de inicio no valida en ${profesional.nombre || profesional.id}.`, errores);
-    validarFecha(profesional.fechaFin, `Fecha de fin no valida en ${profesional.nombre || profesional.id}.`, errores);
-    validarFecha(profesional.fechaInicioCiclo, `Fecha de inicio de ciclo no valida en ${profesional.nombre || profesional.id}.`, errores);
+    validarFecha(profesional.fechaInicio, `Fecha de inicio no válida en ${profesional.nombre || profesional.id}.`, errores);
+    validarFecha(profesional.fechaFin, `Fecha de fin no válida en ${profesional.nombre || profesional.id}.`, errores);
+    validarFecha(profesional.fechaInicioCiclo, `Fecha de inicio de ciclo no válida en ${profesional.nombre || profesional.id}.`, errores);
     if (profesional.fechaInicio && profesional.fechaFin && profesional.fechaFin < profesional.fechaInicio) errores.push(`Contrato con fechas invertidas en ${profesional.nombre || profesional.id}.`);
-    if ("ordenVisual" in profesional && !Number.isFinite(Number(profesional.ordenVisual))) errores.push(`Orden visual no valido en ${profesional.nombre || profesional.id}.`);
+    if ("ordenVisual" in profesional && !Number.isFinite(Number(profesional.ordenVisual))) errores.push(`Orden visual no válido en ${profesional.nombre || profesional.id}.`);
   }
 
   const clavesIncidencia = new Set();
   for (const incidencia of data.incidenciasDiarias || []) {
     if (!incidencia.id) errores.push("Hay una incidencia sin identificador.");
     if (!profesionales.has(incidencia.profesionalId)) errores.push(`Incidencia con profesional inexistente: ${incidencia.profesionalId}.`);
-    validarFecha(incidencia.fecha, `Fecha no valida en incidencia ${incidencia.id || ""}.`, errores);
-    if (!["V", "LD"].includes(incidencia.tipoIncidencia)) errores.push(`Tipo de incidencia no valido: ${incidencia.tipoIncidencia}.`);
-    if (!incidencia.codigoTurnoBase) errores.push(`Incidencia sin codigo de turno base: ${incidencia.id || ""}.`);
-    if (!Number.isFinite(Number(incidencia.horasTurnoBase)) || Number(incidencia.horasTurnoBase) < 0) errores.push(`Horas de turno base no validas en incidencia ${incidencia.id || ""}.`);
+    validarFecha(incidencia.fecha, `Fecha no válida en incidencia ${incidencia.id || ""}.`, errores);
+    if (!["V", "LD"].includes(incidencia.tipoIncidencia)) errores.push(`Tipo de incidencia no válido: ${incidencia.tipoIncidencia}.`);
+    if (!incidencia.codigoTurnoBase) errores.push(`Incidencia sin código de turno base: ${incidencia.id || ""}.`);
+    if (!Number.isFinite(Number(incidencia.horasTurnoBase)) || Number(incidencia.horasTurnoBase) < 0) errores.push(`Horas de turno base no válidas en incidencia ${incidencia.id || ""}.`);
     const clave = `${incidencia.profesionalId}|${incidencia.fecha}|${incidencia.escenarioId || "escenario-oficial"}`;
     if (clavesIncidencia.has(clave)) errores.push(`Incidencia duplicada para profesional, fecha y escenario: ${clave}.`);
     clavesIncidencia.add(clave);
@@ -3418,7 +3560,7 @@ function validarNormativa(perfil, errores) {
     errores.push("La copia no incluye el perfil normativo.");
     return;
   }
-  if (!Array.isArray(perfil.tablaPonderacion) || perfil.tablaPonderacion.length < 146) errores.push("La tabla normativa de ponderacion esta incompleta.");
+  if (!Array.isArray(perfil.tablaPonderacion) || perfil.tablaPonderacion.length < 146) errores.push("La tabla normativa de ponderación está incompleta.");
   const noches = new Set((perfil.tablaPonderacion || []).map((fila) => Number(fila.numero_noches)));
   if (!noches.has(0) || !noches.has(145)) errores.push("La tabla normativa debe cubrir de 0 a 145 noches.");
 }
@@ -3427,11 +3569,11 @@ function validarSnapshotIndexedDb(payload, errores) {
   const snapshot = payload.indexedDb;
   if (!snapshot || typeof snapshot !== "object") {
     if (payload.app === BACKUP_LEGACY_APP_ID && !payload.application) return;
-    errores.push("La copia no incluye la instantanea de IndexedDB.");
+    errores.push("La copia no incluye la instantánea de IndexedDB.");
     return;
   }
   if (!snapshot.stores || typeof snapshot.stores !== "object") errores.push("La instantanea de IndexedDB no contiene almacenes.");
-  if (!snapshot.stores?.appState?.some((entry) => entry.key === "current")) errores.push("La instantanea no incluye el almacen appState/current.");
+  if (!snapshot.stores?.appState?.some((entry) => entry.key === "current")) errores.push("La instantánea no incluye el almacén appState/current.");
 }
 
 
@@ -3446,7 +3588,7 @@ function validarSnapshotIndexedDb(payload, errores) {
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const DIAS = ["D", "L", "M", "X", "J", "V", "S"];
 
-function renderApp(root, state, calendario, resumenes, activeTab = "inicio", selectedMonth = 0, runtimeNotice = "", runtimeNoticeKind = "warn") {
+function renderApp(root, state, calendario, resumenes, activeTab = "inicio", selectedMonth = 0, runtimeNotice = "", runtimeNoticeKind = "warn", incidenceModal = null) {
   root.innerHTML = `
     <div class="app-shell">
       <aside class="sidebar">
@@ -3496,6 +3638,7 @@ function renderApp(root, state, calendario, resumenes, activeTab = "inicio", sel
         <footer class="app-footer">Versión en pruebas · Generada por Carlos Peña Laguna · Licencia Creative Commons BY-NC 4.0</footer>
       </main>
     </div>
+    ${renderIncidenceModal(incidenceModal)}
   `;
 }
 
@@ -3558,7 +3701,7 @@ function renderInicio(state, resumenes) {
     <div class="card evidence-card">
       <h2>Estado V0.1</h2>
       <p class="muted">Aplicación local sin servidor. Los cálculos se realizan en el navegador y se guardan en IndexedDB.</p>
-      <div class="notice">La fuente adjunta incluye 146 filas de ponderación, desde 0 hasta 145 noches. La noche 146 queda pendiente de validación documental.</div>
+      <div class="notice">La fuente validada incluye 146 filas de ponderaciÃ³n, desde 0 hasta 145 noches.</div>
     </div>
   `;
 }
@@ -3616,7 +3759,7 @@ function renderProfesionales(state, resumenes) {
         <label>Fecha inicio<input name="fechaInicio" type="date" value="${state.config.anioActivo}-01-01"></label>
         <label>Fecha fin<input name="fechaFin" type="date" value="${state.config.anioActivo}-12-31"></label>
         <label>Ciclo<select name="cicloId"><option value="">Sin ciclo</option>${options(state.ciclos.map((c) => [c.id, c.nombre]))}</select></label>
-        <label>Inicio ciclo<input name="fechaInicioCiclo" type="date" value="${state.config.anioActivo}-01-01"></label>
+        <label>Inicio ciclo<input name="fechaInicioCiclo" type="date" value="${state.config.anioActivo}-01-01"><span class="field-help">Para escalonar profesionales en el mismo ciclo, asigne fechas de inicio de ciclo consecutivas. La posiciÃ³n inicial se mantiene internamente en 0.</span></label>
         <label>Jornada manual<input name="jornadaManual" type="number" step="0.01" placeholder="Opcional"></label>
         <div class="actions"><button type="submit">Guardar profesional</button><button type="button" class="secondary" data-action="clear-prof-form">Limpiar</button></div>
       </form>
@@ -3713,20 +3856,21 @@ function renderCuadrante(state, calendario, selectedMonth) {
         <label class="compact-field">Mes<select id="monthSelector">${MESES.map((m, i) => `<option value="${i}" ${i === selectedMonth ? "selected" : ""}>${m}</option>`).join("")}</select></label>
         <button type="button" class="secondary recalculate-button" data-action="recalculate-calendar">Recalcular cuadrante</button>
       </div>
+      <p class="muted calendar-help">El desfase entre profesionales se controla mediante la fecha de inicio del ciclo.</p>
       <div class="print-panel">
         <div>
-          <h3>Impresion</h3>
+          <h3>ImpresiÃ³n</h3>
           <p class="muted">Genera vistas imprimibles locales con cabecera institucional, fecha y pie de firma.</p>
         </div>
         <div class="actions">
           <button type="button" class="secondary" data-action="print-calendar-month">Imprimir mes actual</button>
-          <button type="button" class="secondary" data-action="print-calendar-year">Imprimir anio completo</button>
+          <button type="button" class="secondary" data-action="print-calendar-year">Imprimir aÃ±o completo</button>
         </div>
       </div>
       <label class="checkbox-label summary-toggle"><input id="mostrarLibresResumen" type="checkbox" ${state.config.mostrarLibresResumen !== false ? "checked" : ""}> Mostrar libres y ausencias en el resumen</label>
       <div class="incidence-legend">
         <span><span class="shift-code" style="background:${TIPOS_INCIDENCIA.V.color};">V</span> Vacaciones</span>
-        <span><span class="shift-code" style="background:${TIPOS_INCIDENCIA.LD.color};">LD</span> Libre disposicion</span>
+        <span><span class="shift-code" style="background:${TIPOS_INCIDENCIA.LD.color};">LD</span> Libre disposiciÃ³n</span>
       </div>
     </div>
     <div class="card">
@@ -3786,12 +3930,12 @@ function renderJornada(state, resumenes) {
     <div class="card">
       <div class="section-heading">
         <h2>Resumen de jornada</h2>
-        <p>Horas base previstas, descuentos por vacaciones y libre disposicion, y horas efectivas frente al objetivo anual. Bolsas prorrateadas por porcentaje de jornada.</p>
+        <p>Horas base previstas, ausencias y horas efectivas frente al objetivo anual. Bolsas prorrateadas por porcentaje de jornada.</p>
       </div>
       <div class="print-panel">
         <div>
-          <h3>Impresion</h3>
-          <p class="muted">Imprime el resumen general o una planilla individual anual con meses como filas y dias 1-31 como columnas.</p>
+          <h3>ImpresiÃ³n</h3>
+          <p class="muted">Imprime el resumen general o una planilla individual anual con meses como filas y dÃ­as 1-31 como columnas.</p>
         </div>
         <div class="print-controls">
           <button type="button" class="secondary" data-action="print-summary-general">Imprimir resumen general</button>
@@ -3799,13 +3943,14 @@ function renderJornada(state, resumenes) {
           <button type="button" class="secondary" data-action="print-summary-individual">Imprimir resumen individual</button>
         </div>
       </div>
+      <div class="notice jornada-note">Las horas base previstas corresponden al turno originalmente proyectado. Las vacaciones y libres de disposiciÃ³n se descuentan como ausencia sobre el turno previsto. Las horas efectivas muestran la jornada programada tras aplicar esas incidencias.</div>
       <div class="table-wrap"><table><thead><tr><th>Profesional</th><th>Modalidad</th><th>Noches base</th><th>Jornada normativa</th><th>%</th><th>Objetivo</th><th>Base prevista</th><th>Vacaciones</th><th>LD</th><th>Efectivas</th><th>Diferencia</th><th>Estado</th><th>Saldo vacaciones</th><th>Saldo LD</th><th>Alertas</th></tr></thead><tbody>${rows || emptyRow(15)}</tbody></table></div>
     </div>
   `;
 }
 
 function renderCopias(state) {
-  const ultima = state.config.ultimaExportacionJson ? new Date(state.config.ultimaExportacionJson).toLocaleString("es-ES") : "Todavia no se ha exportado ninguna copia.";
+  const ultima = state.config.ultimaExportacionJson ? new Date(state.config.ultimaExportacionJson).toLocaleString("es-ES") : "TodavÃ­a no se ha exportado ninguna copia.";
   return `
     <div class="section-heading">
       <h2>Copias JSON</h2>
@@ -3814,14 +3959,14 @@ function renderCopias(state) {
     <div class="grid cols-2">
       <div class="card backup-card">
         <h3>Exportar</h3>
-        <p class="muted">Descarga un archivo JSON con configuracion, profesionales, turnos, ciclos, ordenes visuales, asignaciones, jornada y tabla normativa.</p>
-        <div class="backup-meta"><strong>Ultima exportacion</strong><span>${escapeHtml(ultima)}</span></div>
+        <p class="muted">Descarga un archivo JSON con configuraciÃ³n, profesionales, turnos, ciclos, Ã³rdenes visuales, asignaciones, jornada y tabla normativa.</p>
+        <div class="backup-meta"><strong>Ãšltima exportaciÃ³n</strong><span>${escapeHtml(ultima)}</span></div>
         <div class="actions"><button data-action="export-json">Exportar copia JSON</button></div>
       </div>
       <div class="card backup-card">
         <h3>Importar</h3>
-        <p class="muted">Restaura una copia creada por esta aplicacion para continuar el trabajo en este navegador.</p>
-        <div class="notice notice-warn">La importacion sustituira los datos almacenados actualmente en este navegador.</div>
+        <p class="muted">Restaura una copia creada por esta aplicaciÃ³n para continuar el trabajo en este navegador.</p>
+        <div class="notice notice-warn">La importaciÃ³n sustituirÃ¡ los datos almacenados actualmente en este navegador.</div>
         <div class="actions">
           <button data-action="open-import-json">Importar copia JSON</button>
           <input class="file-input hidden-input" id="importJson" type="file" accept=".json,application/json">
@@ -3831,13 +3976,73 @@ function renderCopias(state) {
     <div class="card privacy-panel full-width">
       <h3>Mantenimiento local</h3>
       <ul>
-        <li>No existe sincronizacion automatica entre ordenadores.</li>
+        <li>No existe sincronizaciÃ³n automÃ¡tica entre ordenadores.</li>
         <li>Antes de importar se descarga una copia previa de los datos actuales.</li>
-        <li>Guarde los archivos JSON en una ubicacion segura.</li>
+        <li>Guarde los archivos JSON en una ubicaciÃ³n segura.</li>
       </ul>
       <div class="actions"><button class="danger" data-action="reset-data">Restablecer datos</button></div>
     </div>
   `;
+}
+
+function renderIncidenceModal(modal) {
+  if (!modal) return "";
+  const accion = modal.accion || "original";
+  const exceso = Number(modal.excesoSeleccionado || 0);
+  const necesitaConfirmacion = exceso > 0 && accion !== "original";
+  return `
+    <div class="modal-backdrop" role="presentation">
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="incidenceModalTitle">
+        <div class="modal-header">
+          <div>
+            <h2 id="incidenceModalTitle">Editar incidencia</h2>
+            <p>${escapeHtml(modal.profesionalNombre)} Â· ${formatIsoDate(modal.fecha)}</p>
+          </div>
+          <button type="button" class="ghost modal-close" data-action="close-incidence-modal" aria-label="Cerrar">Cerrar</button>
+        </div>
+        <div class="modal-summary">
+          <div><span>Turno previsto</span><strong>${escapeHtml(modal.turnoPrevisto || "-")}</strong></div>
+          <div><span>Horas previstas</span><strong>${fmt(modal.horasTurno)} h</strong></div>
+        </div>
+        <fieldset class="incidence-options">
+          <legend>AcciÃ³n</legend>
+          ${incidenceOption("original", "Mantener turno original", accion)}
+          ${incidenceOption("V", "Vacaciones", accion)}
+          ${incidenceOption("LD", "Libre disposiciÃ³n", accion)}
+        </fieldset>
+        <div class="saldo-grid">
+          ${saldoCard("Vacaciones", modal.vacaciones)}
+          ${saldoCard("Libre disposiciÃ³n", modal.libreDisposicion)}
+        </div>
+        ${modal.error ? `<div class="notice notice-warn modal-warning">${escapeHtml(modal.error)}</div>` : ""}
+        ${necesitaConfirmacion ? `
+          <label class="checkbox-label excess-confirm">
+            <input id="incidenceExcessConfirm" type="checkbox" ${modal.confirmaExceso ? "checked" : ""}>
+            Confirmo aplicar la incidencia aunque supere el saldo disponible.
+          </label>
+        ` : ""}
+        <div class="modal-actions">
+          <button type="button" class="secondary" data-action="close-incidence-modal">Cancelar</button>
+          <button type="button" data-action="confirm-incidence-modal">Confirmar</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function incidenceOption(value, label, current) {
+  return `<label class="incidence-option"><input type="radio" name="incidenceAction" value="${escapeAttr(value)}" ${current === value ? "checked" : ""}> <span>${escapeHtml(label)}</span></label>`;
+}
+
+function saldoCard(label, saldo = {}) {
+  return `<div class="saldo-card">
+    <h3>${escapeHtml(label)}</h3>
+    <dl>
+      <div><dt>Derecho</dt><dd>${fmt(saldo.derecho)} h</dd></div>
+      <div><dt>Utilizadas</dt><dd>${fmt(saldo.utilizadas)} h</dd></div>
+      <div><dt>Pendientes</dt><dd>${fmt(saldo.pendientes)} h</dd></div>
+    </dl>
+  </div>`;
 }
 
 function metric(label, value, detail = "") {
@@ -3860,6 +4065,12 @@ function options(items) {
 
 function fmt(value) {
   return Number(value || 0).toLocaleString("es-ES", { maximumFractionDigits: 2 });
+}
+
+function formatIsoDate(value) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return escapeHtml(value || "");
+  const [year, month, day] = value.split("-");
+  return `${day}/${month}/${year}`;
 }
 
 function escapeHtml(value) {
@@ -3887,7 +4098,7 @@ function imprimirCuadranteMensual(state, calendario, selectedMonth) {
     subtitle: `${PRINT_MESES[selectedMonth]} ${state.config.anioActivo}`,
     meta: metadatosBase(state, [
       ["Mes", PRINT_MESES[selectedMonth]],
-      ["Fecha de impresion", fechaHoraImpresion()],
+      ["Fecha de impresión", fechaHoraImpresion()],
     ]),
     body: `
       ${tablaCuadranteMes(state, calendario, selectedMonth)}
@@ -3901,7 +4112,7 @@ function imprimirCuadranteAnual(state, calendario) {
   const paginas = PRINT_MESES.map((mes, month) => `
     <section class="print-page month-block">
       ${cabeceraInstitucional("Cuadrante anual de turnos", mes)}
-      ${metadataGrid(metadatosBase(state, [["Mes", mes], ["Fecha de impresion", fechaHoraImpresion()]]))}
+      ${metadataGrid(metadatosBase(state, [["Mes", mes], ["Fecha de impresión", fechaHoraImpresion()]]))}
       ${tablaCuadranteMes(state, calendario, month, { compact: true })}
       ${firmaBloque()}
     </section>
@@ -3913,8 +4124,9 @@ function imprimirResumenGeneral(state, calendario, resumenes) {
   const html = printDocument({
     title: "Resumen general de jornada",
     subtitle: String(state.config.anioActivo),
-    meta: metadatosBase(state, [["Fecha de impresion", fechaHoraImpresion()]]),
+    meta: metadatosBase(state, [["Fecha de impresión", fechaHoraImpresion()]]),
     body: `
+      ${notaResumenJornada()}
       ${tablaResumenGeneral(state, calendario, resumenes)}
       ${firmaBloque()}
     `,
@@ -3925,7 +4137,7 @@ function imprimirResumenGeneral(state, calendario, resumenes) {
 function imprimirResumenIndividual(state, calendario, resumenes, profesionalId) {
   const profesional = state.profesionales.find((item) => item.id === profesionalId) || obtenerProfesionalesOrdenados(state.profesionales)[0];
   if (!profesional) {
-    alert("No hay profesionales disponibles para imprimir.");
+    console.warn("No hay profesionales disponibles para imprimir.");
     return;
   }
   const resumen = resumenes.find((item) => item.profesionalId === profesional.id);
@@ -3934,10 +4146,11 @@ function imprimirResumenIndividual(state, calendario, resumenes, profesionalId) 
     subtitle: profesional.nombre || profesional.identificador,
     meta: metadatosBase(state, [
       ["Profesional", profesional.nombre || profesional.identificador],
-      ["Fecha de impresion", fechaHoraImpresion()],
+      ["Fecha de impresión", fechaHoraImpresion()],
     ]),
     body: `
       ${tablaPlanillaIndividual(state, calendario, profesional)}
+      ${notaResumenJornada()}
       ${resumenIndividual(state, calendario, profesional, resumen)}
       ${firmaBloque({ individual: true })}
     `,
@@ -3949,23 +4162,23 @@ function generarHtmlImpresionParaPruebas(tipo, state, calendario, resumenes, sel
   if (tipo === "mes") return printDocument({
     title: "Cuadrante mensual de turnos",
     subtitle: `${PRINT_MESES[selectedMonth]} ${state.config.anioActivo}`,
-    meta: metadatosBase(state, [["Mes", PRINT_MESES[selectedMonth]], ["Fecha de impresion", fechaHoraImpresion()]]),
+    meta: metadatosBase(state, [["Mes", PRINT_MESES[selectedMonth]], ["Fecha de impresión", fechaHoraImpresion()]]),
     body: `${tablaCuadranteMes(state, calendario, selectedMonth)}${firmaBloque()}`,
   });
-  if (tipo === "anio") return `<div class="print-document annual-document">${PRINT_MESES.map((mes, month) => `<section class="print-page month-block">${cabeceraInstitucional("Cuadrante anual de turnos", mes)}${metadataGrid(metadatosBase(state, [["Mes", mes], ["Fecha de impresion", fechaHoraImpresion()]]))}${tablaCuadranteMes(state, calendario, month, { compact: true })}${firmaBloque()}</section>`).join("")}</div>`;
+  if (tipo === "anio") return `<div class="print-document annual-document">${PRINT_MESES.map((mes, month) => `<section class="print-page month-block">${cabeceraInstitucional("Cuadrante anual de turnos", mes)}${metadataGrid(metadatosBase(state, [["Mes", mes], ["Fecha de impresión", fechaHoraImpresion()]]))}${tablaCuadranteMes(state, calendario, month, { compact: true })}${firmaBloque()}</section>`).join("")}</div>`;
   if (tipo === "general") return printDocument({
     title: "Resumen general de jornada",
     subtitle: String(state.config.anioActivo),
-    meta: metadatosBase(state, [["Fecha de impresion", fechaHoraImpresion()]]),
-    body: `${tablaResumenGeneral(state, calendario, resumenes)}${firmaBloque()}`,
+    meta: metadatosBase(state, [["Fecha de impresión", fechaHoraImpresion()]]),
+    body: `${notaResumenJornada()}${tablaResumenGeneral(state, calendario, resumenes)}${firmaBloque()}`,
   });
   const profesional = state.profesionales.find((item) => item.id === profesionalId) || state.profesionales[0];
   const resumen = resumenes.find((item) => item.profesionalId === profesional?.id);
   return printDocument({
     title: "Planilla individual anual",
     subtitle: profesional?.nombre || "",
-    meta: metadatosBase(state, [["Profesional", profesional?.nombre || ""], ["Fecha de impresion", fechaHoraImpresion()]]),
-    body: `${tablaPlanillaIndividual(state, calendario, profesional)}${resumenIndividual(state, calendario, profesional, resumen)}${firmaBloque({ individual: true })}`,
+    meta: metadatosBase(state, [["Profesional", profesional?.nombre || ""], ["Fecha de impresión", fechaHoraImpresion()]]),
+    body: `${tablaPlanillaIndividual(state, calendario, profesional)}${notaResumenJornada()}${resumenIndividual(state, calendario, profesional, resumen)}${firmaBloque({ individual: true })}`,
   });
 }
 
@@ -4016,7 +4229,7 @@ function cabeceraInstitucional(title, subtitle = "") {
 function metadatosBase(state, extra = []) {
   return [
     ["Unidad", state.config.unidad || ""],
-    ["Anio", state.config.anioActivo || ""],
+    ["Año", state.config.anioActivo || ""],
     ["Perfil normativo", PERFIL_NORMATIVO_SESCAM_2019.nombre],
     ...extra,
   ];
@@ -4087,11 +4300,15 @@ function tablaResumenGeneral(state, calendario, resumenes) {
   return `
     <div class="print-table-wrap">
       <table class="print-table print-summary-table">
-        <thead><tr><th>Profesional</th><th>Modalidad</th><th>Objetivo</th><th>Programadas</th><th>Diferencia</th><th>Noches</th><th>Mananas</th><th>Tardes</th><th>Noches</th><th>12 h</th><th>Libres</th><th>Observaciones</th></tr></thead>
+        <thead><tr><th>Profesional</th><th>Modalidad</th><th>Objetivo</th><th>Programadas</th><th>Diferencia</th><th>Noches</th><th>Mañanas</th><th>Tardes</th><th>Noches</th><th>12 h</th><th>Libres</th><th>Observaciones</th></tr></thead>
         <tbody>${rows || printEmptyRow(12)}</tbody>
       </table>
     </div>
   `;
+}
+
+function notaResumenJornada() {
+  return `<p class="print-note">Las horas base previstas corresponden al turno originalmente proyectado. Vacaciones y libre disposición se descuentan como ausencia sobre ese turno; las horas efectivas reflejan la jornada programada tras aplicarlas.</p>`;
 }
 
 function tablaPlanillaIndividual(state, calendario, profesional) {
@@ -4132,7 +4349,7 @@ function resumenIndividual(state, calendario, profesional, resumen) {
   const items = [
     ["Profesional", profesional.nombre || profesional.identificador],
     ["Unidad", state.config.unidad || ""],
-    ["Anio", state.config.anioActivo || ""],
+    ["Año", state.config.anioActivo || ""],
     ["Modalidad", modalidad],
     ["Jornada objetivo", `${printFmt(resumen?.jornada?.objetivo)} h`],
     ["Horas programadas", `${printFmt(resumen?.total)} h`],
@@ -4140,7 +4357,7 @@ function resumenIndividual(state, calendario, profesional, resumen) {
     ["Noches", resumen?.noches ?? 0],
     ["Turnos D12", conteos.d12],
     ["Turnos N12", conteos.n12],
-    ["Mananas", conteos.mananas],
+    ["Mañanas", conteos.mananas],
     ["Tardes", conteos.tardes],
     ["Libres", conteos.libres],
     ["Observaciones", observaciones],
@@ -4154,7 +4371,7 @@ function firmaBloque({ individual = false } = {}) {
     : ["Firma de la supervision / responsable:", "Visto bueno:"];
   return `
     <footer class="print-signature">
-      <p>Fecha de impresion: ${printEscapeHtml(fechaHoraImpresion())}</p>
+      <p>Fecha de impresión: ${printEscapeHtml(fechaHoraImpresion())}</p>
       <div class="signature-lines">
         ${lineas.map((label) => `<div><span>${printEscapeHtml(label)}</span><strong></strong></div>`).join("")}
       </div>
@@ -4208,7 +4425,7 @@ function printFmt(value) {
 }
 
 function printEmptyRow(cols) {
-  return `<tr><td colspan="${cols}">Sin datos todavia.</td></tr>`;
+  return `<tr><td colspan="${cols}">Sin datos todavía.</td></tr>`;
 }
 
 function printEscapeHtml(value) {
@@ -4241,8 +4458,15 @@ let calendario = {};
 let resumenes = [];
 let runtimeNotice = "";
 let runtimeNoticeKind = "warn";
+let incidenceModal = null;
 
 const root = document.getElementById("app");
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || !incidenceModal) return;
+  incidenceModal = null;
+  recalcAndRender();
+});
 
 init();
 
@@ -4258,7 +4482,7 @@ async function init() {
       runtimeNoticeKind = "warn";
     }
   } catch (error) {
-    runtimeNotice = `No se pudo abrir IndexedDB. La aplicacion funciona en memoria durante esta sesion: ${error.message}`;
+    runtimeNotice = `No se pudo abrir IndexedDB. La aplicación funciona en memoria durante esta sesión: ${error.message}`;
     runtimeNoticeKind = "warn";
   }
   recalcAndRender();
@@ -4269,7 +4493,7 @@ function recalcAndRender() {
   calendario = generarCalendarioAnual(state);
   resumenes = calcularResumenGlobal(state, calendario);
   globalThis.gestorTurnosDiagnostico = (profesionalId, fechaConsultada) => diagnosticarTurnoProfesional(state, profesionalId, fechaConsultada);
-  renderApp(root, state, calendario, resumenes, activeTab, selectedMonth, runtimeNotice, runtimeNoticeKind);
+  renderApp(root, state, calendario, resumenes, activeTab, selectedMonth, runtimeNotice, runtimeNoticeKind, incidenceModal);
   bindEvents();
 }
 
@@ -4311,7 +4535,7 @@ function bindEvents() {
     const errores = validarProfesional(data);
     if (errores.length) return notify(errores.join(" "), true);
     const existing = state.profesionales.find((item) => item.id === data.id);
-    if (existing && profesionalTieneIncidencias(existing.id) && cambiaBaseProfesional(existing, data) && !confirm("Este profesional tiene vacaciones o libre disposicion registrados. Si cambia ciclo o fechas, se mantendran las incidencias pero pueden cambiar las horas descontadas. ¿Desea continuar?")) return;
+    if (existing && profesionalTieneIncidencias(existing.id) && cambiaBaseProfesional(existing, data) && !confirm("Este profesional tiene vacaciones o libre disposición registradas. Si cambia ciclo o fechas, se mantendrán las incidencias pero pueden cambiar las horas descontadas. ¿Desea continuar?")) return;
     const payload = {
       ...(existing || crearProfesionalBase(state)),
       ...data,
@@ -4353,7 +4577,7 @@ function bindEvents() {
     try {
       const codigos = parsearSecuencia(data.secuencia).map((codigo) => codigo.toUpperCase());
       const existing = state.ciclos.find((item) => item.id === data.id);
-      if (existing && cicloTieneIncidencias(existing.id) && !confirm("Este ciclo tiene incidencias asociadas a profesionales. Al cambiar la secuencia se mantendran V/LD, pero pueden cambiar las horas descontadas segun el nuevo turno base. ¿Desea continuar?")) return;
+      if (existing && cicloTieneIncidencias(existing.id) && !confirm("Este ciclo tiene incidencias asociadas a profesionales. Al cambiar la secuencia se mantendrán V/LD, pero pueden cambiar las horas descontadas según el nuevo turno base. ¿Desea continuar?")) return;
       if (existing) Object.assign(existing, { nombre: data.nombre, codigos });
       else state.ciclos.push(crearCiclo(data.nombre, codigos, state.turnos));
       await persist();
@@ -4376,6 +4600,20 @@ function bindEvents() {
 
   root.querySelectorAll("[data-action]").forEach((element) => {
     element.addEventListener("click", handleAction);
+  });
+
+  root.querySelectorAll("[name='incidenceAction']").forEach((input) => {
+    input.addEventListener("change", () => {
+      if (!incidenceModal) return;
+      incidenceModal = crearDatosModalIncidencia(incidenceModal.profesionalId, incidenceModal.fecha, input.value, false);
+      recalcAndRender();
+    });
+  });
+
+  root.querySelector("#incidenceExcessConfirm")?.addEventListener("change", (event) => {
+    if (!incidenceModal) return;
+    incidenceModal = { ...incidenceModal, confirmaExceso: event.target.checked };
+    recalcAndRender();
   });
 }
 
@@ -4400,7 +4638,14 @@ async function handleAction(event) {
     return imprimirResumenIndividual(state, calendario, resumenes, profesionalId);
   }
   if (action === "edit-incidencia") {
-    await editarIncidenciaCelda(id, event.currentTarget.dataset.fecha);
+    abrirModalIncidencia(id, event.currentTarget.dataset.fecha);
+  }
+  if (action === "close-incidence-modal") {
+    incidenceModal = null;
+    recalcAndRender();
+  }
+  if (action === "confirm-incidence-modal") {
+    await confirmarIncidenciaModal();
   }
   if (action === "edit-prof") return fillForm("profesionalForm", state.profesionales.find((item) => item.id === id));
   if (action === "move-prof-up") {
@@ -4421,7 +4666,7 @@ async function handleAction(event) {
     normalizarOrdenProfesionales(state.profesionales);
     await persist();
   }
-  if (action === "delete-turno" && confirm("¿Eliminar o desactivar turno? Si esta en uso se desactivara.")) {
+  if (action === "delete-turno" && confirm("¿Eliminar o desactivar turno? Si está en uso se desactivará.")) {
     const enUso = state.ciclos.some((ciclo) => ciclo.codigos.includes(state.turnos.find((t) => t.id === id)?.codigo));
     if (enUso) state.turnos.find((item) => item.id === id).activo = false;
     else state.turnos = state.turnos.filter((item) => item.id !== id);
@@ -4442,7 +4687,7 @@ async function handleAction(event) {
   }
   if (action === "open-import-json") root.querySelector("#importJson")?.click();
   if (action === "reset-data") {
-    if (confirm("Primera confirmacion: se sustituiran los datos locales.") && confirm("Segunda confirmacion: ¿restablecer datos iniciales?")) {
+    if (confirm("Primera confirmación: se sustituirán los datos locales.") && confirm("Segunda confirmación: ¿restablecer datos iniciales?")) {
       await clearState();
       state = normalizarEstado(crearEstadoInicial());
       await persist();
@@ -4482,14 +4727,14 @@ async function recalcularCuadranteDesdeIndexedDb() {
 
 function validarDatosRecalculo(currentState) {
   const errores = [];
-  if (!Number.isFinite(Number(currentState.config?.anioActivo))) errores.push("El año activo no es valido.");
+  if (!Number.isFinite(Number(currentState.config?.anioActivo))) errores.push("El año activo no es válido.");
   const ciclos = new Set((currentState.ciclos || []).filter((ciclo) => ciclo.activo && !ciclo.archivado).map((ciclo) => ciclo.id));
   for (const profesional of currentState.profesionales || []) {
     const etiqueta = profesional.nombre || profesional.identificador || profesional.id || "Profesional sin identificar";
-    if (!profesional.cicloId || !ciclos.has(profesional.cicloId)) errores.push(`${etiqueta}: ciclo asignado no valido.`);
-    if (!normalizarFechaIso(profesional.fechaInicioCiclo)) errores.push(`${etiqueta}: fecha de inicio de ciclo no valida.`);
-    if (!normalizarFechaIso(profesional.fechaInicio)) errores.push(`${etiqueta}: fecha de inicio de contrato no valida.`);
-    if (!normalizarFechaIso(profesional.fechaFin)) errores.push(`${etiqueta}: fecha de fin de contrato no valida.`);
+    if (!profesional.cicloId || !ciclos.has(profesional.cicloId)) errores.push(`${etiqueta}: ciclo asignado no válido.`);
+    if (!normalizarFechaIso(profesional.fechaInicioCiclo)) errores.push(`${etiqueta}: fecha de inicio de ciclo no válida.`);
+    if (!normalizarFechaIso(profesional.fechaInicio)) errores.push(`${etiqueta}: fecha de inicio de contrato no válida.`);
+    if (!normalizarFechaIso(profesional.fechaFin)) errores.push(`${etiqueta}: fecha de fin de contrato no válida.`);
     if (profesional.fechaInicio && profesional.fechaFin && normalizarFechaIso(profesional.fechaInicio) && normalizarFechaIso(profesional.fechaFin) && profesional.fechaFin < profesional.fechaInicio) {
       errores.push(`${etiqueta}: fechas de contrato invertidas.`);
     }
@@ -4500,7 +4745,7 @@ function validarDatosRecalculo(currentState) {
 function imprimirDiagnosticoRecalculo() {
   const diagnostico = calcularDiagnosticoProyeccion(state);
   const fechaConsultada = diagnostico[0]?.fechaConsultada || `${Number(state.config.anioActivo)}-${String(selectedMonth + 1).padStart(2, "0")}-01`;
-  console.info(`Recalculo cuadrante ${fechaConsultada}`, diagnostico);
+  console.info(`Recálculo cuadrante ${fechaConsultada}`, diagnostico);
 }
 
 function calcularDiagnosticoProyeccion(currentState) {
@@ -4522,41 +4767,92 @@ function calcularDiagnosticoProyeccion(currentState) {
   });
 }
 
-async function editarIncidenciaCelda(profesionalId, fecha) {
+function abrirModalIncidencia(profesionalId, fecha) {
   const profesional = state.profesionales.find((item) => item.id === profesionalId);
   const diaBase = calendario[profesionalId]?.[fecha];
-  if (!profesional || !diaBase?.codigo || diaBase.fueraContrato || diaBase.sinCiclo) return notify("No se puede aplicar una incidencia en una celda sin turno generado o fuera de contrato.", true);
+  if (!profesional || !diaBase?.codigo || diaBase.fueraContrato || diaBase.sinCiclo) {
+    return notify("No se puede aplicar una incidencia en una celda sin turno generado o fuera de contrato.", true);
+  }
   const actual = state.incidenciasDiarias.find((item) => item.profesionalId === profesionalId && item.fecha === fecha);
-  const opciones = [
-    `${diaBase.codigo} - Mantener turno original`,
-    "V - Vacaciones",
-    "LD - Libre disposicion",
-  ].join("\n");
-  const respuesta = prompt(`Seleccione una opcion para ${profesional.nombre} el ${fecha}:\n\n${opciones}\n\nEscriba: ${diaBase.codigo}, V o LD`, actual?.tipoIncidencia || diaBase.codigo);
-  if (respuesta === null) return;
-  const opcion = respuesta.trim().toUpperCase();
-  if (!opcion || opcion === diaBase.codigo.toUpperCase() || opcion === "MANTENER") {
+  incidenceModal = crearDatosModalIncidencia(profesionalId, fecha, actual?.tipoIncidencia || "original", false);
+  recalcAndRender();
+  setTimeout(() => root.querySelector("[data-action='confirm-incidence-modal']")?.focus(), 0);
+}
+
+function crearDatosModalIncidencia(profesionalId, fecha, accion = "original", confirmaExceso = false, error = "") {
+  const profesional = state.profesionales.find((item) => item.id === profesionalId);
+  const diaBase = calendario[profesionalId]?.[fecha] || {};
+  const actual = state.incidenciasDiarias.find((item) => item.profesionalId === profesionalId && item.fecha === fecha) || null;
+  const vacaciones = calcularSaldoIncidencia(profesional, "V", diaBase, actual);
+  const libreDisposicion = calcularSaldoIncidencia(profesional, "LD", diaBase, actual);
+  const saldoSeleccionado = accion === "V" ? vacaciones : accion === "LD" ? libreDisposicion : null;
+  const horasTurno = Number(diaBase.horas || 0);
+  const excesoSeleccionado = saldoSeleccionado ? Math.max(0, horasTurno - Math.max(0, saldoSeleccionado.pendientes)) : 0;
+  return {
+    profesionalId,
+    fecha,
+    profesionalNombre: profesional?.nombre || profesional?.identificador || "",
+    turnoPrevisto: diaBase.codigo || "",
+    horasTurno,
+    accion,
+    confirmaExceso,
+    error,
+    vacaciones,
+    libreDisposicion,
+    excesoSeleccionado: redondearHoras(excesoSeleccionado),
+  };
+}
+
+function calcularSaldoIncidencia(profesional, tipoIncidencia, diaBase, incidenciaActual = null) {
+  const derechos = calcularDerechosAusencias(profesional, state.config);
+  const usadoActual = calcularUsoActualIncidencias(state, calendario, profesional.id, tipoIncidencia);
+  const restaActual = incidenciaActual?.tipoIncidencia === tipoIncidencia ? Number(diaBase?.horas || incidenciaActual.horasTurnoBase || 0) : 0;
+  const utilizadoSinCelda = redondearHoras(usadoActual - restaActual);
+  const derecho = tipoIncidencia === "V" ? derechos.vacaciones : derechos.libreDisposicion;
+  return {
+    derecho,
+    utilizadas: utilizadoSinCelda,
+    pendientes: redondearHoras(Math.max(0, derecho - utilizadoSinCelda)),
+  };
+}
+
+async function confirmarIncidenciaModal() {
+  if (!incidenceModal) return;
+  const { profesionalId, fecha, accion } = incidenceModal;
+  const profesional = state.profesionales.find((item) => item.id === profesionalId);
+  const diaBase = calendario[profesionalId]?.[fecha];
+  if (!profesional || !diaBase?.codigo || diaBase.fueraContrato || diaBase.sinCiclo) {
+    incidenceModal = crearDatosModalIncidencia(profesionalId, fecha, accion, false, "No se puede aplicar una incidencia en una celda sin turno generado o fuera de contrato.");
+    recalcAndRender();
+    return;
+  }
+  if (accion === "original") {
     eliminarIncidencia(state, profesionalId, fecha);
+    incidenceModal = null;
     await persist();
     return;
   }
-  if (!TIPOS_INCIDENCIA[opcion]) return notify("Opcion no valida. Use V, LD o el codigo del turno original.", true);
-  if (!confirmarExcesoBolsa(profesional, opcion, Number(diaBase.horas || 0), actual)) return;
-  aplicarIncidencia(state, profesional, diaBase, opcion);
+  if (!TIPOS_INCIDENCIA[accion]) {
+    incidenceModal = crearDatosModalIncidencia(profesionalId, fecha, "original", false, "Seleccione una opción válida.");
+    recalcAndRender();
+    return;
+  }
+  const datosActualizados = crearDatosModalIncidencia(profesionalId, fecha, accion, incidenceModal.confirmaExceso);
+  if (datosActualizados.excesoSeleccionado > 0 && !datosActualizados.confirmaExceso) {
+    incidenceModal = {
+      ...datosActualizados,
+      error: `La incidencia supera el saldo disponible en ${datosActualizados.excesoSeleccionado} h. Marque la confirmación para continuar.`,
+    };
+    recalcAndRender();
+    return;
+  }
+  aplicarIncidencia(state, profesional, diaBase, accion);
+  incidenceModal = null;
   await persist();
 }
 
-function confirmarExcesoBolsa(profesional, tipoIncidencia, horasTurno, incidenciaActual = null) {
-  const derechos = calcularDerechosAusencias(profesional, state.config);
-  const usadoActual = calcularUsoActualIncidencias(state, calendario, profesional.id, tipoIncidencia);
-  const restaActual = incidenciaActual?.tipoIncidencia === tipoIncidencia ? Number(calendario[profesional.id]?.[incidenciaActual.fecha]?.horas || incidenciaActual.horasTurnoBase || 0) : 0;
-  const utilizadoSinCelda = usadoActual - restaActual;
-  const derecho = tipoIncidencia === "V" ? derechos.vacaciones : derechos.libreDisposicion;
-  const disponible = derecho - utilizadoSinCelda;
-  if (horasTurno <= disponible) return true;
-  const exceso = horasTurno - Math.max(0, disponible);
-  const nombre = TIPOS_INCIDENCIA[tipoIncidencia].nombre.toLowerCase();
-  return confirm(`Este turno descontara ${horasTurno} horas de ${nombre}.\nSolo quedan ${Math.max(0, disponible)} horas disponibles.\nLa aplicacion registrara un exceso de ${exceso} horas.\n¿Desea continuar?`);
+function redondearHoras(value) {
+  return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 }
 
 function profesionalTieneIncidencias(profesionalId) {
@@ -4617,7 +4913,7 @@ async function importarJson(event) {
     const payload = JSON.parse(await file.text());
     const { errores, data, resumen } = prepararImportacionBackup(payload);
     if (errores.length) return notify(errores.join(" "), true);
-    if (!confirm(`${formatearResumenImportacion(resumen)}\n\nAntes de importar se descargara una copia de los datos actuales.\n\n¿Sustituir todos los datos actuales?`)) return;
+    if (!confirm(`${formatearResumenImportacion(resumen)}\n\nAntes de importar se descargará una copia de los datos actuales.\n\n¿Sustituir todos los datos actuales?`)) return;
     const copiaActual = await crearCopiaActual();
     descargarJson(crearNombreCopia("gestor-turnos_copia-antes-de-importar"), copiaActual);
     const estadoAnterior = structuredClone(state);
@@ -4660,8 +4956,9 @@ async function crearCopiaActual() {
 }
 
 function notify(message, isError = false) {
-  const prefix = isError ? "Error" : "Aviso";
-  alert(`${prefix}: ${message}`);
+  runtimeNotice = message;
+  runtimeNoticeKind = isError ? "warn" : "ok";
+  recalcAndRender();
 }
 
     </script>

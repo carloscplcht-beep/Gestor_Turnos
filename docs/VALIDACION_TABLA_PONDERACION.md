@@ -4,8 +4,8 @@
 
 - Fuente JSON: `normativa_tmp/ponderacion_jornada_sescam_2019.json`.
 - Fuente CSV: `normativa_tmp/ponderacion_jornada_sescam_2019.csv`.
-- Filas disponibles en la fuente adjunta: 146, desde 0 hasta 145 noches.
-- Fila 146: pendiente, no incluida en la fuente adjunta.
+- La fuente validada incluye 146 filas de ponderación, desde 0 hasta 145 noches.
+- Rango válido de la tabla: 0-145 noches.
 
 ## Comprobaciones
 
@@ -166,4 +166,3 @@
 | 143 | validada | jornada_realizar=1451 |
 | 144 | validada | jornada_realizar=1447 |
 | 145 | validada | jornada_realizar=1450 |
-| 146 | pendiente | No disponible en la fuente adjunta |

@@ -10,7 +10,7 @@ export const TIPOS_INCIDENCIA = {
   },
   LD: {
     codigo: "LD",
-    nombre: "Libre disposicion",
+    nombre: "Libre disposición",
     campoHoras: "horasLibreDisposicion",
     campoBolsa: "bolsaLibreDisposicionHoras",
     color: "#e8ddf7",

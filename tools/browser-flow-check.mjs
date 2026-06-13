@@ -84,8 +84,14 @@ async function main() {
     if (result.recalculateNotice !== "Cuadrante recalculado correctamente") {
       throw new Error(`Aviso de recalculo no valido: ${result.recalculateNotice}`);
     }
-    if (!result.recalculateDiagnostics.some((entry) => entry.includes("Recalculo cuadrante 2026-01-01"))) {
+    if (!result.recalculateDiagnostics.some((entry) => entry.includes("Recálculo cuadrante 2026-01-01"))) {
       throw new Error(`No se emitio diagnostico de recalculo: ${JSON.stringify(result.recalculateDiagnostics)}`);
+    }
+    if (!result.incidenceChecks?.vacaciones || !result.incidenceChecks?.libreDisposicion || !result.incidenceChecks?.original || !result.incidenceChecks?.exceso || !result.incidenceChecks?.jsonImport) {
+      throw new Error(`El flujo modal de incidencias no se completo: ${JSON.stringify(result.incidenceChecks)}`);
+    }
+    if (!result.incidenceChecks.printAfterIncidences) {
+      throw new Error(`La impresion tras incidencias no contiene V y LD: ${JSON.stringify(result.incidenceChecks)}`);
     }
     assertDeepEqual(
       result.jan1,
@@ -264,7 +270,7 @@ function assertPrintView(actual, expected, label) {
     }
   }
   if (!actual.hasDate || !actual.dataLogoSources) {
-    throw new Error(`${label}: faltan fecha de impresion o logos embebidos. ${JSON.stringify(actual, null, 2)}`);
+    throw new Error(`${label}: faltan fecha de impresión o logos embebidos. ${JSON.stringify(actual, null, 2)}`);
   }
 }
 
@@ -456,6 +462,7 @@ async function browserScenarioAfterReload() {
     .slice(0, 8);
   const renderedSequences = rows.map((row) => Array.from(row.querySelectorAll("td.shift-cell")).slice(0, 8).map((cell) => cell.textContent.trim()).join(","));
   const navTexts = Array.from(document.querySelectorAll(".nav-button")).map((button) => button.textContent.trim());
+  const incidenceChecks = await exerciseIncidenceModal();
   const printChecks = await exercisePrintViews();
 
   return {
@@ -469,6 +476,7 @@ async function browserScenarioAfterReload() {
     jan1,
     renderedSequences,
     navTexts,
+    incidenceChecks,
     printChecks,
     consoleErrors,
   };
@@ -503,6 +511,109 @@ async function browserScenarioAfterReload() {
       .map((item) => ({ nombre: item.nombre, fechaInicioCiclo: item.fechaInicioCiclo, posicionInicial: Number(item.posicionInicial || 0) }));
   }
 
+  async function exerciseIncidenceModal() {
+    document.querySelector('[data-tab="cuadrante"]').click();
+    await waitFor(() => document.querySelector("#cuadrante table.calendar"));
+    const checks = {
+      vacaciones: false,
+      libreDisposicion: false,
+      original: false,
+      exceso: false,
+      jsonImport: false,
+      printAfterIncidences: false,
+    };
+
+    await aplicarIncidenciaDesdeModal("P7", 1, "V");
+    checks.vacaciones = cellText("P7", 1) === "V" && (await readStateFromIndexedDb()).incidenciasDiarias.some((item) => item.tipoIncidencia === "V");
+
+    await aplicarIncidenciaDesdeModal("P7", 1, "original");
+    checks.original = cellText("P7", 1) === "D12" && !(await readStateFromIndexedDb()).incidenciasDiarias.some((item) => item.profesionalId === profesionalId("P7") && item.fecha === "2026-01-01");
+
+    await aplicarIncidenciaDesdeModal("P6", 1, "LD");
+    checks.libreDisposicion = cellText("P6", 1) === "LD" && (await readStateFromIndexedDb()).incidenciasDiarias.some((item) => item.tipoIncidencia === "LD");
+
+    state.config.ausencias.vacacionesHoras = 1;
+    await saveState(state);
+    recalcAndRender();
+    await waitFor(() => document.querySelector("#cuadrante table.calendar"));
+    openCell("P7", 1);
+    await waitFor(() => document.querySelector(".modal-card"));
+    selectIncidenceAction("V");
+    document.querySelector('[data-action="confirm-incidence-modal"]').click();
+    await waitFor(() => document.querySelector(".modal-warning") && document.querySelector("#incidenceExcessConfirm"));
+    document.querySelector("#incidenceExcessConfirm").checked = true;
+    document.querySelector("#incidenceExcessConfirm").dispatchEvent(new Event("change", { bubbles: true }));
+    await waitFor(() => document.querySelector("#incidenceExcessConfirm")?.checked);
+    document.querySelector('[data-action="confirm-incidence-modal"]').click();
+    await waitFor(() => cellText("P7", 1) === "V");
+    checks.exceso = (await readStateFromIndexedDb()).incidenciasDiarias.some((item) => item.profesionalId === profesionalId("P7") && item.tipoIncidencia === "V");
+
+    const stateWithIncidences = await readStateFromIndexedDb();
+    const backupWithIncidences = crearBackup(stateWithIncidences, await exportDatabaseSnapshot(stateWithIncidences), "2026-01-02T00:00:00.000Z");
+    const exportedIncidences = backupWithIncidences.data.incidenciasDiarias.map((item) => item.tipoIncidencia).sort().join(",");
+    await clearState();
+    state = normalizarEstado(crearEstadoInicial());
+    await saveState(state);
+    const preparedIncidences = prepararImportacionBackup(backupWithIncidences);
+    if (preparedIncidences.errores.length) throw new Error(preparedIncidences.errores.join(" "));
+    state = await sustituirEstadoConRollback({
+      estadoActual: await readStateFromIndexedDb(),
+      estadoNuevo: normalizarEstado(preparedIncidences.data),
+      guardarEstado: saveState,
+    });
+    recalcAndRender();
+    await waitFor(() => cellText("P6", 1) === "LD" && cellText("P7", 1) === "V");
+    const importedIncidences = (await readStateFromIndexedDb()).incidenciasDiarias.map((item) => item.tipoIncidencia).sort().join(",");
+    checks.jsonImport = exportedIncidences === "LD,V" && importedIncidences === "LD,V";
+
+    const originalPrint = window.print;
+    window.print = () => {};
+    try {
+      document.querySelector('[data-action="print-calendar-month"]').click();
+      await waitFor(() => document.querySelector(".print-root .print-document"));
+      checks.printAfterIncidences = document.querySelector(".print-root")?.textContent?.includes("LD") && document.querySelector(".print-root")?.textContent?.includes("V");
+    } finally {
+      window.print = originalPrint;
+      clearPrintRoot();
+    }
+
+    return checks;
+  }
+
+  async function aplicarIncidenciaDesdeModal(nombre, diaMes, accion) {
+    openCell(nombre, diaMes);
+    await waitFor(() => document.querySelector(".modal-card"));
+    selectIncidenceAction(accion);
+    document.querySelector('[data-action="confirm-incidence-modal"]').click();
+    await waitFor(() => !document.querySelector(".modal-card"));
+  }
+
+  function selectIncidenceAction(value) {
+    const input = document.querySelector(`input[name="incidenceAction"][value="${value}"]`);
+    if (!input) throw new Error(`No existe la opcion de incidencia ${value}`);
+    input.checked = true;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function openCell(nombre, diaMes) {
+    const cell = rowForProfessional(nombre)?.querySelectorAll("td.shift-cell")[diaMes - 1];
+    if (!cell) throw new Error(`No existe celda ${nombre} dia ${diaMes}`);
+    cell.click();
+  }
+
+  function cellText(nombre, diaMes) {
+    return rowForProfessional(nombre)?.querySelectorAll("td.shift-cell")[diaMes - 1]?.textContent?.trim() || "";
+  }
+
+  function rowForProfessional(nombre) {
+    return Array.from(document.querySelectorAll("#cuadrante table.calendar tbody tr"))
+      .find((row) => row.querySelector("td")?.textContent?.trim() === nombre);
+  }
+
+  function profesionalId(nombre) {
+    return state.profesionales.find((profesional) => profesional.nombre === nombre)?.id || "";
+  }
+
   async function exercisePrintViews() {
     const originalPrint = window.print;
     let printCalls = 0;
@@ -512,7 +623,7 @@ async function browserScenarioAfterReload() {
     try {
       const monthButton = document.querySelector('[data-action="print-calendar-month"]');
       const yearButton = document.querySelector('[data-action="print-calendar-year"]');
-      if (!monthButton || !yearButton) throw new Error("No existen los botones de impresion de cuadrante.");
+      if (!monthButton || !yearButton) throw new Error("No existen los botones de impresión de cuadrante.");
 
       monthButton.click();
       await waitFor(() => document.querySelector(".print-root .print-document"));
@@ -557,7 +668,7 @@ async function browserScenarioAfterReload() {
       title: root.querySelector(".print-title h1")?.textContent?.trim() || "",
       logos: logos.length,
       dataLogoSources: logos.every((image) => image.getAttribute("src")?.startsWith("data:image/jpeg")),
-      hasDate: root.textContent.includes("Fecha de impresion"),
+      hasDate: root.textContent.includes("Fecha de impresión"),
       signature: Boolean(root.querySelector(".print-signature")),
       table: Boolean(root.querySelector(".print-table")),
       monthBlocks: root.querySelectorAll(".month-block").length,
