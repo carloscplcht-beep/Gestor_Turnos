@@ -9,7 +9,7 @@ import { monthDates, parseDate, weekdayIndex } from "../utils/dateUtils.js";
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const DIAS = ["D", "L", "M", "X", "J", "V", "S"];
 
-export function renderApp(root, state, calendario, resumenes, activeTab = "inicio", selectedMonth = 0, runtimeNotice = "") {
+export function renderApp(root, state, calendario, resumenes, activeTab = "inicio", selectedMonth = 0, runtimeNotice = "", runtimeNoticeKind = "warn") {
   root.innerHTML = `
     <div class="app-shell">
       <aside class="sidebar">
@@ -46,7 +46,7 @@ export function renderApp(root, state, calendario, resumenes, activeTab = "inici
           <span>Perfil: <strong>${escapeHtml(PERFIL_NORMATIVO_SESCAM_2019.nombre)}</strong></span>
         </div>
         <div class="content">
-          ${runtimeNotice ? `<div class="notice notice-warn">${escapeHtml(runtimeNotice)}</div>` : ""}
+          ${runtimeNotice ? `<div class="notice ${runtimeNoticeKind === "ok" ? "notice-ok" : "notice-warn"}">${escapeHtml(runtimeNotice)}</div>` : ""}
           ${section("inicio", activeTab, renderInicio(state, resumenes))}
           ${section("config", activeTab, renderConfig(state))}
           ${section("profesionales", activeTab, renderProfesionales(state, resumenes))}
@@ -273,7 +273,10 @@ function renderCuadrante(state, calendario, selectedMonth) {
         <h2>Cuadrante mensual</h2>
         <p>Vista de planificación por profesional con totales mensuales.</p>
       </div>
-      <label class="compact-field">Mes<select id="monthSelector">${MESES.map((m, i) => `<option value="${i}" ${i === selectedMonth ? "selected" : ""}>${m}</option>`).join("")}</select></label>
+      <div class="calendar-toolbar">
+        <label class="compact-field">Mes<select id="monthSelector">${MESES.map((m, i) => `<option value="${i}" ${i === selectedMonth ? "selected" : ""}>${m}</option>`).join("")}</select></label>
+        <button type="button" class="secondary recalculate-button" data-action="recalculate-calendar">Recalcular cuadrante</button>
+      </div>
       <label class="checkbox-label summary-toggle"><input id="mostrarLibresResumen" type="checkbox" ${state.config.mostrarLibresResumen !== false ? "checked" : ""}> Mostrar libres y ausencias en el resumen</label>
       <div class="incidence-legend">
         <span><span class="shift-code" style="background:${TIPOS_INCIDENCIA.V.color};">V</span> Vacaciones</span>

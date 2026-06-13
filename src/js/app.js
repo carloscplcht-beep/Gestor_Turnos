@@ -4,7 +4,7 @@ import { crearCiclo, parsearSecuencia } from "./domain/ciclos.js";
 import { diagnosticarTurnoProfesional, generarCalendarioAnual } from "./domain/generadorCalendario.js";
 import { calcularResumenGlobal } from "./domain/calculoJornada.js";
 import { migrarEstado, normalizarEstado } from "./domain/migracion.js";
-import { moverProfesional, normalizarOrdenProfesionales } from "./domain/orden.js";
+import { moverProfesional, normalizarOrdenProfesionales, obtenerProfesionalesOrdenados } from "./domain/orden.js";
 import { aplicarIncidencia, calcularDerechosAusencias, calcularUsoActualIncidencias, eliminarIncidencia, TIPOS_INCIDENCIA } from "./domain/incidencias.js";
 import { clearState, exportDatabaseSnapshot, loadState, saveState } from "./storage/indexedDb.js";
 import { crearBackup, crearNombreCopia, descargarJson, formatearResumenImportacion, prepararImportacionBackup, sustituirEstadoConRollback } from "./services/backupService.js";
@@ -17,6 +17,7 @@ let selectedMonth = 0;
 let calendario = {};
 let resumenes = [];
 let runtimeNotice = "";
+let runtimeNoticeKind = "warn";
 
 const root = document.getElementById("app");
 
@@ -31,9 +32,11 @@ async function init() {
       state = migrarEstado(savedState);
       await saveState(state);
       runtimeNotice = "";
+      runtimeNoticeKind = "warn";
     }
   } catch (error) {
     runtimeNotice = `No se pudo abrir IndexedDB. La aplicacion funciona en memoria durante esta sesion: ${error.message}`;
+    runtimeNoticeKind = "warn";
   }
   recalcAndRender();
 }
@@ -43,7 +46,7 @@ function recalcAndRender() {
   calendario = generarCalendarioAnual(state);
   resumenes = calcularResumenGlobal(state, calendario);
   globalThis.gestorTurnosDiagnostico = (profesionalId, fechaConsultada) => diagnosticarTurnoProfesional(state, profesionalId, fechaConsultada);
-  renderApp(root, state, calendario, resumenes, activeTab, selectedMonth, runtimeNotice);
+  renderApp(root, state, calendario, resumenes, activeTab, selectedMonth, runtimeNotice, runtimeNoticeKind);
   bindEvents();
 }
 
@@ -51,8 +54,10 @@ async function persist() {
   try {
     await saveState(state);
     runtimeNotice = "";
+    runtimeNoticeKind = "warn";
   } catch (error) {
     runtimeNotice = `No se pudo guardar en IndexedDB. Los cambios siguen visibles en memoria: ${error.message}`;
+    runtimeNoticeKind = "warn";
     notify(runtimeNotice, true);
   } finally {
     recalcAndRender();
@@ -161,6 +166,9 @@ async function handleAction(event) {
     const input = root.querySelector("#cicloForm [name='secuencia']");
     input.value = `${input.value}${input.value.trim() ? ", " : ""}${event.currentTarget.dataset.code}`;
   }
+  if (action === "recalculate-calendar") {
+    await recalcularCuadranteDesdeIndexedDb();
+  }
   if (action === "edit-incidencia") {
     await editarIncidenciaCelda(id, event.currentTarget.dataset.fecha);
   }
@@ -210,6 +218,70 @@ async function handleAction(event) {
       await persist();
     }
   }
+}
+
+async function recalcularCuadranteDesdeIndexedDb() {
+  try {
+    const savedState = await loadState();
+    if (!savedState) throw new Error("No hay datos persistidos en IndexedDB.");
+    const persistedState = migrarEstado(savedState);
+    const errores = validarDatosRecalculo(persistedState);
+    if (errores.length) {
+      state = persistedState;
+      runtimeNotice = "No se pudo recalcular: revisar profesionales sin ciclo o fechas no válidas";
+      runtimeNoticeKind = "warn";
+      console.warn("No se pudo recalcular el cuadrante", errores);
+      recalcAndRender();
+      return;
+    }
+    state = persistedState;
+    await saveState(state);
+    calendario = generarCalendarioAnual(state);
+    resumenes = calcularResumenGlobal(state, calendario);
+    runtimeNotice = "Cuadrante recalculado correctamente";
+    runtimeNoticeKind = "ok";
+    imprimirDiagnosticoRecalculo();
+    recalcAndRender();
+  } catch (error) {
+    runtimeNotice = "No se pudo recalcular: revisar profesionales sin ciclo o fechas no válidas";
+    runtimeNoticeKind = "warn";
+    console.error("No se pudo recalcular el cuadrante", error);
+    recalcAndRender();
+  }
+}
+
+function validarDatosRecalculo(currentState) {
+  const errores = [];
+  if (!Number.isFinite(Number(currentState.config?.anioActivo))) errores.push("El año activo no es valido.");
+  const ciclos = new Set((currentState.ciclos || []).filter((ciclo) => ciclo.activo && !ciclo.archivado).map((ciclo) => ciclo.id));
+  for (const profesional of currentState.profesionales || []) {
+    const etiqueta = profesional.nombre || profesional.identificador || profesional.id || "Profesional sin identificar";
+    if (!profesional.cicloId || !ciclos.has(profesional.cicloId)) errores.push(`${etiqueta}: ciclo asignado no valido.`);
+    if (!normalizarFechaIso(profesional.fechaInicioCiclo)) errores.push(`${etiqueta}: fecha de inicio de ciclo no valida.`);
+    if (!normalizarFechaIso(profesional.fechaInicio)) errores.push(`${etiqueta}: fecha de inicio de contrato no valida.`);
+    if (!normalizarFechaIso(profesional.fechaFin)) errores.push(`${etiqueta}: fecha de fin de contrato no valida.`);
+    if (!Number.isInteger(Number(profesional.posicionInicial))) errores.push(`${etiqueta}: posicion inicial no valida.`);
+    if (profesional.fechaInicio && profesional.fechaFin && normalizarFechaIso(profesional.fechaInicio) && normalizarFechaIso(profesional.fechaFin) && profesional.fechaFin < profesional.fechaInicio) {
+      errores.push(`${etiqueta}: fechas de contrato invertidas.`);
+    }
+  }
+  return errores;
+}
+
+function imprimirDiagnosticoRecalculo() {
+  const fechaConsultada = `${Number(state.config.anioActivo)}-${String(selectedMonth + 1).padStart(2, "0")}-01`;
+  const diagnostico = obtenerProfesionalesOrdenados(state.profesionales || []).map((profesional) => {
+    const ciclo = state.ciclos.find((item) => item.id === profesional.cicloId);
+    const dia = calendario[profesional.id]?.[fechaConsultada] || {};
+    return {
+      nombre: profesional.nombre || profesional.identificador,
+      fechaInicioCiclo: profesional.fechaInicioCiclo,
+      posicionInicial: Number(profesional.posicionInicial || 0),
+      cicloAsignado: ciclo?.nombre || "",
+      turnoDia1MesSeleccionado: dia.codigo || "",
+    };
+  });
+  console.info(`Recalculo cuadrante ${fechaConsultada}`, diagnostico);
 }
 
 async function editarIncidenciaCelda(profesionalId, fecha) {
@@ -319,6 +391,7 @@ async function importarJson(event) {
       guardarEstado: saveState,
     });
     runtimeNotice = "Copia importada correctamente. Se han restaurado todos los datos.";
+    runtimeNoticeKind = "ok";
     recalcAndRender();
     notify("Copia importada correctamente. Se han restaurado todos los datos.");
   } catch (error) {
@@ -337,6 +410,7 @@ async function exportarCopiaJson() {
     const backup = crearBackup(state, snapshot, exportedAt);
     descargarJson(crearNombreCopia("gestor-turnos_copia", new Date(exportedAt)), backup);
     runtimeNotice = "Copia JSON exportada correctamente.";
+    runtimeNoticeKind = "ok";
     recalcAndRender();
   } catch (error) {
     notify(`No se pudo exportar la copia JSON: ${error.message}`, true);

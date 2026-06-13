@@ -64,6 +64,12 @@ async function main() {
     assertDeepEqual(result.indexedDbAfterReload, expectedJan1.map(({ nombre, fechaInicioCiclo }) => ({ nombre, fechaInicioCiclo, posicionInicial: 0 })), "IndexedDB tras recargar");
     assertDeepEqual(result.exportedDates, expectedJan1.map(({ nombre, fechaInicioCiclo }) => ({ nombre, fechaInicioCiclo })), "exportacion JSON");
     assertDeepEqual(result.indexedDbAfterImport, expectedJan1.map(({ nombre, fechaInicioCiclo }) => ({ nombre, fechaInicioCiclo, posicionInicial: 0 })), "IndexedDB tras importar");
+    if (result.recalculateNotice !== "Cuadrante recalculado correctamente") {
+      throw new Error(`Aviso de recalculo no valido: ${result.recalculateNotice}`);
+    }
+    if (!result.recalculateDiagnostics.some((entry) => entry.includes("Recalculo cuadrante 2026-01-01"))) {
+      throw new Error(`No se emitio diagnostico de recalculo: ${JSON.stringify(result.recalculateDiagnostics)}`);
+    }
     assertDeepEqual(
       result.jan1,
       expectedJan1.map(({ nombre, diasTranscurridos, indice, turno }) => ({ nombre, diasTranscurridos, indice, turno })),
@@ -350,10 +356,16 @@ async function browserScenarioBeforeReload() {
 
 async function browserScenarioAfterReload() {
   const consoleErrors = [];
+  const consoleInfo = [];
   const originalError = console.error;
+  const originalInfo = console.info;
   console.error = (...args) => {
     consoleErrors.push(args.map(String).join(" "));
     originalError(...args);
+  };
+  console.info = (...args) => {
+    consoleInfo.push(args.map((arg) => typeof arg === "string" ? arg : JSON.stringify(arg)).join(" "));
+    originalInfo(...args);
   };
 
   await waitFor(() => document.querySelector("#cuadrante table.calendar"));
@@ -382,6 +394,12 @@ async function browserScenarioAfterReload() {
   await waitForState((current) => current.profesionales.length === 8);
   const indexedDbAfterImport = projectProfessionals(await readStateFromIndexedDb());
 
+  const recalculateButton = document.querySelector('[data-action="recalculate-calendar"]');
+  if (!recalculateButton) throw new Error("No existe el boton Recalcular cuadrante.");
+  recalculateButton.click();
+  await waitFor(() => document.querySelector(".notice-ok")?.textContent?.includes("Cuadrante recalculado correctamente"));
+  const recalculateNotice = document.querySelector(".notice-ok")?.textContent?.trim() || "";
+
   const jan1 = (await readStateFromIndexedDb()).profesionales
     .slice()
     .sort((a, b) => Number(a.ordenVisual) - Number(b.ordenVisual))
@@ -404,6 +422,8 @@ async function browserScenarioAfterReload() {
     indexedDbAfterReload,
     exportedDates,
     indexedDbAfterImport,
+    recalculateNotice,
+    recalculateDiagnostics: consoleInfo,
     jan1,
     renderedSequences,
     consoleErrors,
