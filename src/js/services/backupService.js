@@ -5,7 +5,7 @@ import { normalizarFechaIso } from "../utils/dateUtils.js";
 export const BACKUP_APPLICATION_NAME = "Gestor Local de Turnos de Enfermería";
 export const BACKUP_LEGACY_APP_ID = "gestor-turnos-enfermeria";
 export const BACKUP_SCHEMA_VERSION = 1;
-export const APP_VERSION = "0.1.1";
+export const APP_VERSION = "0.1.2";
 
 export function crearBackup(state, databaseSnapshot = null, exportedAt = new Date().toISOString()) {
   const data = migrarEstado(structuredClone(state));

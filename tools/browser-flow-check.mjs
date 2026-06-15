@@ -80,10 +80,10 @@ async function main() {
     if (result.printChecks.printCalls !== 4) {
       throw new Error(`No se invocaron las cuatro impresiones esperadas: ${JSON.stringify(result.printChecks)}`);
     }
-    assertPrintView(result.printChecks.month, { title: "Cuadrante mensual de turnos", logos: 2, signature: true, table: true }, "impresion mensual");
-    assertPrintView(result.printChecks.year, { title: "Cuadrante anual de turnos", logos: 24, signature: true, monthBlocks: 12 }, "impresion anual");
-    assertPrintView(result.printChecks.general, { title: "Resumen general de jornada", logos: 2, signature: true, table: true }, "impresion resumen general");
-    assertPrintView(result.printChecks.individual, { title: "Planilla individual anual", logos: 2, signature: true, individualRows: 12, individualDayHeaders: 31 }, "impresion individual");
+    assertPrintView(result.printChecks.month, { title: "Cuadrante mensual de turnos", logos: 2, signature: true, table: true, hasHospital: true }, "impresion mensual");
+    assertPrintView(result.printChecks.year, { title: "Cuadrante anual de turnos", logos: 24, signature: true, monthBlocks: 12, hasHospital: true }, "impresion anual");
+    assertPrintView(result.printChecks.general, { title: "Resumen general de jornada", logos: 2, signature: true, table: true, hasHospital: true }, "impresion resumen general");
+    assertPrintView(result.printChecks.individual, { title: "Planilla individual anual", logos: 2, signature: true, individualRows: 12, individualDayHeaders: 31, hasHospital: true }, "impresion individual");
     if (result.recalculateNotice !== "Cuadrante recalculado correctamente") {
       throw new Error(`Aviso de recalculo no valido: ${result.recalculateNotice}`);
     }
@@ -704,6 +704,7 @@ async function browserScenarioAfterReload() {
       logos: logos.length,
       dataLogoSources: logos.every((image) => image.getAttribute("src")?.startsWith("data:image/jpeg")),
       hasDate: root.textContent.includes("Fecha de impresión"),
+      hasHospital: root.textContent.includes("Hospital"),
       signature: Boolean(root.querySelector(".print-signature")),
       table: Boolean(root.querySelector(".print-table")),
       monthBlocks: root.querySelectorAll(".month-block").length,

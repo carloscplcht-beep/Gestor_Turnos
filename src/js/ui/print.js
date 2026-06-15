@@ -145,6 +145,7 @@ function cabeceraInstitucional(title, subtitle = "") {
 function metadatosBase(state, extra = []) {
   return [
     ["Unidad", state.config.unidad || ""],
+    ["Hospital", state.config.hospital || "No especificado"],
     ["Año", state.config.anioActivo || ""],
     ["Perfil normativo", PERFIL_NORMATIVO_SESCAM_2019.nombre],
     ...extra,
@@ -201,9 +202,12 @@ function tablaResumenGeneral(state, calendario, resumenes) {
     return `<tr>
       <td>${printEscapeHtml(profesional.nombre || profesional.identificador)}</td>
       <td>${printEscapeHtml(modalidad)}</td>
+      <td>${printFmt(resumen?.jornada?.base)}</td>
+      <td>${printFmt(profesional.porcentajeJornada)}%</td>
       <td>${printFmt(resumen?.jornada?.objetivo)}</td>
       <td>${printFmt(resumen?.total)}</td>
       <td>${printFmt(resumen?.diferencia)}</td>
+      <td>${printEscapeHtml(resumen?.estado || "")}</td>
       <td>${resumen?.noches ?? 0}</td>
       <td>${conteos.mananas}</td>
       <td>${conteos.tardes}</td>
@@ -216,8 +220,8 @@ function tablaResumenGeneral(state, calendario, resumenes) {
   return `
     <div class="print-table-wrap">
       <table class="print-table print-summary-table">
-        <thead><tr><th>Profesional</th><th>Modalidad</th><th>Objetivo</th><th>Programadas</th><th>Diferencia</th><th>Noches</th><th>Mañanas</th><th>Tardes</th><th>Noches</th><th>12 h</th><th>Libres</th><th>Observaciones</th></tr></thead>
-        <tbody>${rows || printEmptyRow(12)}</tbody>
+        <thead><tr><th>Profesional</th><th>Modalidad</th><th>Base normativa</th><th>%</th><th>Objetivo</th><th>Efectivas</th><th>Diferencia</th><th>Estado</th><th>Noches anuales</th><th>Mañanas</th><th>Tardes</th><th>Turnos noche</th><th>12 h</th><th>Libres</th><th>Observaciones</th></tr></thead>
+        <tbody>${rows || printEmptyRow(15)}</tbody>
       </table>
     </div>
   `;
@@ -265,12 +269,16 @@ function resumenIndividual(state, calendario, profesional, resumen) {
   const items = [
     ["Profesional", profesional.nombre || profesional.identificador],
     ["Unidad", state.config.unidad || ""],
+    ["Hospital", state.config.hospital || "No especificado"],
     ["Año", state.config.anioActivo || ""],
     ["Modalidad", modalidad],
+    ["Noches anuales", resumen?.noches ?? 0],
+    ["Jornada normativa", `${printFmt(resumen?.jornada?.base)} h`],
+    ["Porcentaje", `${printFmt(profesional.porcentajeJornada)}%`],
     ["Jornada objetivo", `${printFmt(resumen?.jornada?.objetivo)} h`],
-    ["Horas programadas", `${printFmt(resumen?.total)} h`],
+    ["Horas efectivas", `${printFmt(resumen?.total)} h`],
     ["Diferencia", `${printFmt(resumen?.diferencia)} h`],
-    ["Noches", resumen?.noches ?? 0],
+    ["Estado", resumen?.estado || ""],
     ["Turnos D12", conteos.d12],
     ["Turnos N12", conteos.n12],
     ["Mañanas", conteos.mananas],

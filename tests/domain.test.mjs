@@ -11,6 +11,7 @@ import { moverProfesional, obtenerProfesionalesOrdenados } from "../src/js/domai
 import { calcularResumenDiarioTurnos } from "../src/js/domain/resumenDiario.js";
 import { crearBackup, prepararImportacionBackup, sustituirEstadoConRollback, validarBackup } from "../src/js/services/backupService.js";
 import { aplicarIncidencia, calcularSaldosAusencias, eliminarIncidencia, resolverDiaConIncidencia } from "../src/js/domain/incidencias.js";
+import { generarHtmlImpresionParaPruebas } from "../src/js/ui/print.js";
 
 globalThis.crypto ??= { randomUUID: () => `test-${Math.random()}` };
 
@@ -395,12 +396,69 @@ test("jornada normativa: valores fijos", () => {
 
 test("jornada normativa: rotatorio por tabla", () => {
   assert.equal(obtenerFilaPonderacion(0).jornada_realizar, 1519);
+  assert.equal(obtenerFilaPonderacion(40).jornada_realizar, 1492);
   assert.equal(obtenerFilaPonderacion(42).jornada_realizar, 1491);
   assert.equal(obtenerFilaPonderacion(145).jornada_realizar, 1450);
   assert.equal(obtenerFilaPonderacion(146), null);
+  assert.equal(calcularJornadaObjetivo({ modalidad: "rotatorio", noches: 42, porcentajeJornada: 100 }).objetivo, 1491);
+  assert.equal(calcularJornadaObjetivo({ modalidad: "rotatorio", noches: 40, porcentajeJornada: 100 }).objetivo, 1492);
   assert.equal(calcularJornadaObjetivo({ modalidad: "rotatorio", noches: 42, porcentajeJornada: 50 }).objetivo, 745.5);
   const fuera = calcularJornadaObjetivo({ modalidad: "rotatorio", noches: 146, porcentajeJornada: 100 });
   assert.equal(fuera.advertencia, "Numero de noches fuera de la tabla oficial disponible.");
+});
+
+test("jornada normativa: objetivo dinamico por noches efectivas del calendario", () => {
+  const state = baseState();
+  state.profesionales = [
+    profesional("Rotatorio 42", "", "2026-01-01", "2026-12-31", 0, 100, "rotatorio", { id: "rot42", ordenVisual: 1 }),
+    profesional("Rotatorio 40", "", "2026-01-01", "2026-12-31", 0, 100, "rotatorio", { id: "rot40", ordenVisual: 2 }),
+    profesional("Rotatorio parcial", "", "2026-01-01", "2026-12-31", 0, 50, "rotatorio", { id: "rot42-50", ordenVisual: 3 }),
+    profesional("Diurno fijo", "", "2026-01-01", "2026-12-31", 0, 100, "diurno", { id: "diurno", ordenVisual: 4 }),
+  ];
+  const calendario = {
+    rot42: calendarioConNoches(2026, 42),
+    rot40: calendarioConNoches(2026, 40),
+    "rot42-50": calendarioConNoches(2026, 42),
+    diurno: calendarioConNoches(2026, 0, "M"),
+  };
+  const resumen = calcularResumenGlobal(state, calendario);
+  assert.equal(resumen[0].noches, 42);
+  assert.equal(resumen[0].jornada.objetivo, 1491);
+  assert.equal(resumen[1].noches, 40);
+  assert.equal(resumen[1].jornada.objetivo, 1492);
+  assert.equal(resumen[2].noches, 42);
+  assert.equal(resumen[2].jornada.objetivo, 745.5);
+  assert.equal(resumen[3].noches, 0);
+  assert.equal(resumen[3].jornada.objetivo, 1519);
+});
+
+test("jornada normativa: vacaciones sobre noche prevista no cuenta como noche efectiva", () => {
+  const state = baseState();
+  const profesionalNoche = profesional("Noche con V", "", "2026-01-01", "2026-12-31", 0, 100, "rotatorio", { id: "noche-v", ordenVisual: 1 });
+  state.profesionales = [profesionalNoche];
+  const calendario = { "noche-v": calendarioConNoches(2026, 1) };
+  aplicarIncidencia(state, profesionalNoche, calendario["noche-v"]["2026-01-01"], "V");
+  const resumen = calcularResumenGlobal(state, calendario)[0];
+  assert.equal(resumen.noches, 0);
+  assert.equal(resumen.jornada.objetivo, 1519);
+});
+
+test("impresion: hospital y jornada dinamica aparecen en resumen general e individual", () => {
+  const state = baseState({ config: { unidad: "UCI Demo", hospital: "Hospital Central", anioActivo: 2026, jornadaPersonalizada: 1519, mostrarLibresResumen: true, ultimaExportacionJson: "" } });
+  state.profesionales = [profesional("Rotatorio 40", "", "2026-01-01", "2026-12-31", 0, 100, "rotatorio", { id: "rot40", ordenVisual: 1 })];
+  const calendario = { rot40: calendarioConNoches(2026, 40) };
+  const resumenes = calcularResumenGlobal(state, calendario);
+  const general = generarHtmlImpresionParaPruebas("general", state, calendario, resumenes);
+  const individual = generarHtmlImpresionParaPruebas("individual", state, calendario, resumenes, 0, "rot40");
+  for (const html of [general, individual]) {
+    assert.ok(html.includes("Hospital"));
+    assert.ok(html.includes("Hospital Central"));
+    assert.ok(html.includes("Noches"));
+    assert.ok(html.includes("Objetivo") || html.includes("Jornada objetivo"));
+    assert.ok(html.includes("Diferencia"));
+    assert.ok(html.includes("Estado"));
+    assert.ok(html.includes("1492"));
+  }
 });
 
 test("jornada manual conserva calculo automatico", () => {
@@ -418,6 +476,28 @@ function baseState(overrides = {}) {
     incidenciasDiarias: [],
     ...overrides,
   };
+}
+
+function calendarioConNoches(year, noches, codigoResto = "L") {
+  const dias = {};
+  let contadorNoches = 0;
+  for (let month = 0; month < 12; month += 1) {
+    for (const fecha of fechasMes(year, month)) {
+      const esNoche = contadorNoches < noches;
+      dias[fecha] = esNoche
+        ? { fecha, codigo: "N", horas: 10, esNoche: true, grupoCobertura: "noche", turnoId: "turno-N" }
+        : codigoResto === "M"
+          ? { fecha, codigo: "M", horas: 7, esNoche: false, grupoCobertura: "manana", turnoId: "turno-M" }
+          : { fecha, codigo: "L", horas: 0, esNoche: false, grupoCobertura: "libre", turnoId: "turno-L" };
+      if (esNoche) contadorNoches += 1;
+    }
+  }
+  return dias;
+}
+
+function fechasMes(year, month) {
+  const total = daysInMonth(year, month);
+  return Array.from({ length: total }, (_, index) => `${year}-${String(month + 1).padStart(2, "0")}-${String(index + 1).padStart(2, "0")}`);
 }
 
 function estadoCompletoCopias() {

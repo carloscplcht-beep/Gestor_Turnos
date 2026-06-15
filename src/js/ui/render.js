@@ -338,9 +338,10 @@ function renderJornada(state, resumenes) {
     const p = state.profesionales.find((item) => item.id === r.profesionalId);
     const vac = r.saldosAusencias.vacaciones;
     const ld = r.saldosAusencias.libreDisposicion;
+    const ayudaObjetivo = r.jornada.modalidad?.id === "rotatorio" ? "Objetivo calculado según noches anuales programadas y tabla SESCAM 2019." : "Objetivo de modalidad fija.";
     return `<tr>
       <td>${escapeHtml(p?.nombre || "")}</td><td>${escapeHtml(MODALIDADES.find((m) => m.id === p?.modalidad)?.nombre || "")}</td>
-      <td>${r.noches}</td><td>${r.jornada.base}</td><td>${p?.porcentajeJornada}%</td><td>${r.jornada.objetivo}</td>
+      <td>${r.noches}</td><td title="${escapeAttr(ayudaObjetivo)}">${r.jornada.base}</td><td>${p?.porcentajeJornada}%</td><td title="${escapeAttr(ayudaObjetivo)}">${r.jornada.objetivo}</td>
       <td>${r.totalBasePrevisto}</td><td>${r.horasVacaciones}</td><td>${r.horasLibreDisposicion}</td><td>${r.total}</td><td>${fmt(r.diferencia)}</td><td>${estadoBadge(r.estado)}</td>
       <td>Derecho ${vac.derecho} h · Usadas ${vac.utilizadas} h · Pendientes ${vac.pendientes} h${vac.exceso ? ` · Exceso ${vac.exceso} h` : ""}</td>
       <td>Derecho ${ld.derecho} h · Usadas ${ld.utilizadas} h · Pendientes ${ld.pendientes} h${ld.exceso ? ` · Exceso ${ld.exceso} h` : ""}</td>

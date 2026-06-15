@@ -24,7 +24,7 @@ export function calcularResumenProfesional(profesional, calendario, state) {
       horasVacaciones += Number(dia.horasVacaciones || 0);
       horasLibreDisposicion += Number(dia.horasLibreDisposicion || 0);
       horas += Number(dia.horasEfectivas ?? dia.horas ?? 0);
-      if (diaBase?.esNoche) noches += 1;
+      if (dia?.esNoche) noches += 1;
       if (diaBase?.codigo) contarDesglose(diaBase, desglose);
     }
     horasMes.push(roundHours(horas));

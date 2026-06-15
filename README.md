@@ -2,7 +2,7 @@
 
 Aplicación local/offline para planificación de turnos de enfermería hospitalaria, generación de cuadrantes, cálculo de jornada, gestión básica de vacaciones y libre disposición, impresión y copias JSON.
 
-Versión actual: **V0.1.1 en pruebas**. No es una herramienta asistencial definitiva; debe validarse en piloto antes de usarse como referencia operativa.
+Versión actual: **V0.1.2 en pruebas**. No es una herramienta asistencial definitiva; debe validarse en piloto antes de usarse como referencia operativa.
 
 ## URL pública
 
@@ -20,7 +20,7 @@ Puede utilizarse de tres formas:
 
 Los datos se guardan en IndexedDB dentro del navegador del equipo. No se suben datos a servidores. Las copias JSON se exportan e importan manualmente, y la impresión se realiza localmente mediante el navegador.
 
-## Funcionalidades V0.1.1
+## Funcionalidades V0.1.2
 
 - Configuración de unidad, hospital, año activo y jornada personalizada.
 - Gestión de profesionales con contrato, modalidad normativa, porcentaje de jornada, ciclo asignado y fecha de inicio de ciclo.
@@ -30,8 +30,9 @@ Los datos se guardan en IndexedDB dentro del navegador del equipo. No se suben d
 - Cuadrante mensual con resumen diario de turnos.
 - Botón **Recalcular cuadrante** desde datos persistidos en IndexedDB.
 - Resumen de jornada anual con base prevista, vacaciones, libre disposición, horas efectivas y diferencias.
+- Jornada objetivo rotatoria calculada por noches anuales efectivas y tabla SESCAM 2019.
 - Incidencias básicas de vacaciones y libre disposición mediante modal visual.
-- Impresión de mes actual, año completo, resumen general y planilla individual anual.
+- Impresión de mes actual, año completo, resumen general y planilla individual anual con unidad, hospital, año, perfil normativo y fecha.
 - Logos institucionales integrados como recursos locales.
 - Exportación e importación manual de copias JSON.
 - Auditoría local sin CDN, recursos remotos, backend ni envío de datos.
