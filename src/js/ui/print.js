@@ -2,7 +2,7 @@ import { BRAND_ASSETS } from "../data/brandAssets.js";
 import { MODALIDADES, PERFIL_NORMATIVO_SESCAM_2019 } from "../domain/normativa.js";
 import { obtenerProfesionalesOrdenados } from "../domain/orden.js";
 import { calcularResumenDiarioTurnos } from "../domain/resumenDiario.js";
-import { resolverDiaConIncidencia } from "../domain/incidencias.js";
+import { resolverDiaConIncidencia, TIPOS_MODIFICACION } from "../domain/incidencias.js";
 import { monthDates, parseDate, weekdayIndex } from "../utils/dateUtils.js";
 
 const PRINT_MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -18,6 +18,7 @@ export function imprimirCuadranteMensual(state, calendario, selectedMonth) {
     ]),
     body: `
       ${tablaCuadranteMes(state, calendario, selectedMonth)}
+      ${notaTurnosModificados()}
       ${firmaBloque()}
     `,
   });
@@ -30,6 +31,7 @@ export function imprimirCuadranteAnual(state, calendario) {
       ${cabeceraInstitucional("Cuadrante anual de turnos", mes)}
       ${metadataGrid(metadatosBase(state, [["Mes", mes], ["Fecha de impresión", fechaHoraImpresion()]]))}
       ${tablaCuadranteMes(state, calendario, month, { compact: true })}
+      ${notaTurnosModificados()}
       ${firmaBloque()}
     </section>
   `).join("");
@@ -79,9 +81,9 @@ export function generarHtmlImpresionParaPruebas(tipo, state, calendario, resumen
     title: "Cuadrante mensual de turnos",
     subtitle: `${PRINT_MESES[selectedMonth]} ${state.config.anioActivo}`,
     meta: metadatosBase(state, [["Mes", PRINT_MESES[selectedMonth]], ["Fecha de impresión", fechaHoraImpresion()]]),
-    body: `${tablaCuadranteMes(state, calendario, selectedMonth)}${firmaBloque()}`,
+    body: `${tablaCuadranteMes(state, calendario, selectedMonth)}${notaTurnosModificados()}${firmaBloque()}`,
   });
-  if (tipo === "anio") return `<div class="print-document annual-document">${PRINT_MESES.map((mes, month) => `<section class="print-page month-block">${cabeceraInstitucional("Cuadrante anual de turnos", mes)}${metadataGrid(metadatosBase(state, [["Mes", mes], ["Fecha de impresión", fechaHoraImpresion()]]))}${tablaCuadranteMes(state, calendario, month, { compact: true })}${firmaBloque()}</section>`).join("")}</div>`;
+  if (tipo === "anio") return `<div class="print-document annual-document">${PRINT_MESES.map((mes, month) => `<section class="print-page month-block">${cabeceraInstitucional("Cuadrante anual de turnos", mes)}${metadataGrid(metadatosBase(state, [["Mes", mes], ["Fecha de impresión", fechaHoraImpresion()]]))}${tablaCuadranteMes(state, calendario, month, { compact: true })}${notaTurnosModificados()}${firmaBloque()}</section>`).join("")}</div>`;
   if (tipo === "general") return printDocument({
     title: "Resumen general de jornada",
     subtitle: String(state.config.anioActivo),
@@ -171,7 +173,7 @@ function tablaCuadranteMes(state, calendario, selectedMonth, options = {}) {
       const dia = diaVisible(state, calendario, profesional, fecha);
       total += Number((dia.horasEfectivas ?? dia.horas) || 0);
       const wd = weekdayIndex(fecha);
-      return `<td class="print-shift ${wd === 0 || wd === 6 ? "weekend" : ""}" style="background:${printEscapeAttr(colorTurno(state, dia))}">${printEscapeHtml(dia.codigoVisible || dia.codigo || "")}</td>`;
+      return `<td class="print-shift ${dia.incidencia ? "print-modified-shift" : ""} ${wd === 0 || wd === 6 ? "weekend" : ""}" style="background:${printEscapeAttr(colorTurno(state, dia))}">${printEscapeHtml(dia.codigoVisible || dia.codigo || "")}</td>`;
     }).join("");
     return `<tr><td class="print-sticky-name">${printEscapeHtml(profesional.nombre || profesional.identificador)}</td>${cells}<td>${printFmt(total)}</td></tr>`;
   }).join("");
@@ -228,7 +230,11 @@ function tablaResumenGeneral(state, calendario, resumenes) {
 }
 
 function notaResumenJornada() {
-  return `<p class="print-note">Las horas base previstas corresponden al turno originalmente proyectado. Vacaciones y libre disposición se descuentan como ausencia sobre ese turno; las horas efectivas reflejan la jornada programada tras aplicarlas.</p>`;
+  return `<p class="print-note">Las horas base previstas corresponden al turno originalmente proyectado. Vacaciones y libre disposición se descuentan como ausencia; los cambios manuales computan las horas, presencia y noches del turno aplicado.</p>`;
+}
+
+function notaTurnosModificados() {
+  return `<p class="print-note">Los turnos modificados manualmente se muestran con el código aplicado.</p>`;
 }
 
 function tablaPlanillaIndividual(state, calendario, profesional) {
@@ -243,7 +249,7 @@ function tablaPlanillaIndividual(state, calendario, profesional) {
       if (!fecha) return `<td class="empty-day"></td>`;
       const wd = weekdayIndex(fecha);
       const dia = diaVisible(state, calendario, profesional, fecha);
-      return `<td class="print-shift ${wd === 0 || wd === 6 ? "weekend" : ""}" style="background:${printEscapeAttr(colorTurno(state, dia))}">${printEscapeHtml(dia.codigoVisible || dia.codigo || "")}</td>`;
+      return `<td class="print-shift ${dia.incidencia ? "print-modified-shift" : ""} ${wd === 0 || wd === 6 ? "weekend" : ""}" style="background:${printEscapeAttr(colorTurno(state, dia))}">${printEscapeHtml(dia.codigoVisible || dia.codigo || "")}</td>`;
     }).join("");
     return `<tr><td class="month-name">${printEscapeHtml(mes)}</td>${cells}</tr>`;
   }).join("");
@@ -309,7 +315,9 @@ function contarTurnosProfesional(state, calendario, profesional) {
     for (const fecha of monthDates(Number(state.config.anioActivo), month)) {
       const dia = diaVisible(state, calendario, profesional, fecha);
       const codigo = String(dia.codigoVisible || dia.codigo || "").toUpperCase();
-      const turno = state.turnos.find((item) => item.codigo === (dia.codigoBase || dia.codigo));
+      const esTurnoManual = dia.incidencia?.tipoModificacion === TIPOS_MODIFICACION.TURNO_MANUAL || Boolean(dia.incidencia?.turnoManualCodigo);
+      if (dia.incidencia && !esTurnoManual) continue;
+      const turno = state.turnos.find((item) => item.id === dia.turnoId || item.codigo === (dia.codigoAplicado || dia.codigo));
       if (!codigo) continue;
       if (codigo === "D12") conteos.d12 += 1;
       if (codigo === "N12") conteos.n12 += 1;
@@ -329,8 +337,8 @@ function diaVisible(state, calendario, profesional, fecha) {
 }
 
 function colorTurno(state, dia) {
-  if (dia.colorIncidencia) return dia.colorIncidencia;
-  const turno = state.turnos.find((item) => item.codigo === (dia.codigoBase || dia.codigo));
+  if (dia.colorAplicado || dia.colorIncidencia) return dia.colorAplicado || dia.colorIncidencia;
+  const turno = state.turnos.find((item) => item.id === dia.turnoId || item.codigo === (dia.codigoAplicado || dia.codigo));
   return turno?.color || "#ffffff";
 }
 

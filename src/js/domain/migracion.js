@@ -1,10 +1,10 @@
 import { normalizarOrdenProfesionales } from "./orden.js";
-import { crearConfiguracionAusenciasBase, ESCENARIO_OFICIAL } from "./incidencias.js";
+import { crearConfiguracionAusenciasBase, ESCENARIO_OFICIAL, TIPOS_MODIFICACION } from "./incidencias.js";
 import { normalizarFechaIso } from "../utils/dateUtils.js";
 
 export function migrarEstado(state) {
   if (!state || typeof state !== "object") return state;
-  state.schemaVersion = Math.max(Number(state.schemaVersion || 1), 2);
+  state.schemaVersion = Math.max(Number(state.schemaVersion || 1), 3);
   state.config ??= {};
   if (typeof state.config.mostrarLibresResumen !== "boolean") state.config.mostrarLibresResumen = true;
   if (typeof state.config.ultimaExportacionJson !== "string") state.config.ultimaExportacionJson = "";
@@ -12,7 +12,7 @@ export function migrarEstado(state) {
   if (!Array.isArray(state.incidenciasDiarias)) state.incidenciasDiarias = [];
   migrarProfesionales(state.profesionales || []);
   migrarTurnos(state.turnos || []);
-  migrarIncidencias(state.incidenciasDiarias);
+  migrarIncidencias(state.incidenciasDiarias, state.turnos || []);
   return state;
 }
 
@@ -37,11 +37,25 @@ export function migrarTurnos(turnos) {
   return turnos;
 }
 
-export function migrarIncidencias(incidencias) {
+export function migrarIncidencias(incidencias, turnos = []) {
   incidencias.forEach((incidencia) => {
     incidencia.fecha = normalizarFechaIso(incidencia.fecha) || incidencia.fecha;
     incidencia.escenarioId ||= ESCENARIO_OFICIAL;
     incidencia.horasTurnoBase = Number(incidencia.horasTurnoBase || 0);
+    incidencia.tipoModificacion ||= incidencia.turnoManualCodigo ? TIPOS_MODIFICACION.TURNO_MANUAL : TIPOS_MODIFICACION.INCIDENCIA;
+    if (incidencia.tipoModificacion === TIPOS_MODIFICACION.TURNO_MANUAL) {
+      const turno = turnos.find((item) => item.id === incidencia.turnoManualId || String(item.codigo).toUpperCase() === String(incidencia.turnoManualCodigo || "").toUpperCase());
+      incidencia.tipoIncidencia = "";
+      incidencia.turnoManualId ||= turno?.id || "";
+      incidencia.turnoManualCodigo ||= turno?.codigo || "";
+      incidencia.turnoManualNombre ||= turno?.nombre || incidencia.turnoManualCodigo;
+      incidencia.horasTurnoManual = Number(incidencia.horasTurnoManual ?? turno?.horasComputables ?? 0);
+      incidencia.grupoCoberturaTurnoManual ||= turno?.grupoCobertura || "otro";
+      incidencia.colorTurnoManual ||= turno?.color || "#ffffff";
+      if (typeof incidencia.cuentaComoPresenciaTurnoManual !== "boolean") incidencia.cuentaComoPresenciaTurnoManual = Boolean(turno?.cuentaComoPresencia);
+    } else {
+      incidencia.tipoModificacion = TIPOS_MODIFICACION.INCIDENCIA;
+    }
     incidencia.creadoEn ||= incidencia.actualizadoEn || new Date().toISOString();
     incidencia.actualizadoEn ||= incidencia.creadoEn;
   });

@@ -1,5 +1,4 @@
 import { isWithinRange } from "../utils/dateUtils.js";
-import { buscarTurnoPorCodigo } from "./turnos.js";
 import { obtenerTurnosOrdenados } from "./orden.js";
 import { resolverDiaConIncidencia, TIPOS_INCIDENCIA } from "./incidencias.js";
 
@@ -35,11 +34,10 @@ export function calcularResumenDiarioTurnos(state, calendario, fechas, mostrarLi
       const diaBase = calendario[profesional.id]?.[fecha];
       const dia = resolverDiaConIncidencia(state, profesional, diaBase, fecha);
       if (!dia?.codigoBase) continue;
-      const codigoResumen = dia.incidencia ? dia.codigoVisible : dia.codigoBase;
-      const turno = dia.incidencia ? null : buscarTurnoPorCodigo(state.turnos, dia.codigoBase);
+      const codigoResumen = dia.codigoVisible || dia.codigoAplicado || dia.codigoBase;
       const fila = filaPorCodigo.get(String(codigoResumen).toUpperCase());
       if (fila) fila.conteos[fecha] += 1;
-      if (!dia.incidencia && turno?.cuentaComoPresencia) totalPresencia[fecha] += 1;
+      if (dia.cuentaComoPresencia) totalPresencia[fecha] += 1;
     }
   }
 
@@ -50,9 +48,10 @@ export function obtenerTurnosRelevantes(state, calendario, fechas, mostrarLibres
   const codigosUsados = new Set();
   for (const profesional of state.profesionales || []) {
     for (const fecha of fechas) {
-      const codigo = calendario[profesional.id]?.[fecha]?.codigo;
-      const incidencia = state.incidenciasDiarias?.find((item) => item.profesionalId === profesional.id && item.fecha === fecha);
-      if (codigo && !incidencia) codigosUsados.add(String(codigo).toUpperCase());
+      const diaBase = calendario[profesional.id]?.[fecha];
+      const dia = resolverDiaConIncidencia(state, profesional, diaBase, fecha);
+      const codigo = dia?.codigoVisible || dia?.codigoAplicado || dia?.codigoBase;
+      if (codigo && !TIPOS_INCIDENCIA[codigo]) codigosUsados.add(String(codigo).toUpperCase());
     }
   }
   return obtenerTurnosOrdenados(state.turnos || []).filter((turno) => {

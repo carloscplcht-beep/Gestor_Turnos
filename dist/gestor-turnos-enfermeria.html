@@ -386,7 +386,7 @@ tr:last-child td { border-bottom: 0; }
 }
 .calendar th:first-child { background: #eef6fa; z-index: 4; }
 .day-head { text-align: center; min-width: 44px; }
-.weekend { background: #eef3f6 !important; }
+th.weekend { background: #eef3f6 !important; }
 .today { outline: 2px solid var(--teal); outline-offset: -2px; }
 .shift-cell { text-align: center; font-weight: 820; color: #123047; }
 .shift-cell:hover { filter: saturate(1.08); }
@@ -394,6 +394,9 @@ tr:last-child td { border-bottom: 0; }
 .incidence-cell {
   color: #351f4f;
   box-shadow: inset 0 0 0 2px rgba(53, 31, 79, .15);
+}
+.manual-shift-cell {
+  box-shadow: inset 0 -3px 0 #176b68;
 }
 .incidence-legend {
   display: flex;
@@ -579,6 +582,15 @@ tr:last-child td { border-bottom: 0; }
   font-weight: 820;
 }
 
+.incidence-option-heading {
+  margin-top: 5px;
+  padding: 8px 2px 3px;
+  color: #344f68;
+  font-size: 12px;
+  font-weight: 820;
+  text-transform: uppercase;
+}
+
 .incidence-option {
   display: flex;
   align-items: center;
@@ -596,6 +608,13 @@ tr:last-child td { border-bottom: 0; }
 }
 
 .incidence-option input { width: auto; }
+.shift-swatch {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  border: 1px solid rgba(18, 48, 71, .2);
+  border-radius: 4px;
+}
 
 .saldo-grid {
   display: grid;
@@ -811,7 +830,11 @@ tr:last-child td { border-bottom: 0; }
     print-color-adjust: exact;
   }
 
-  .weekend {
+  .print-modified-shift {
+    box-shadow: inset 0 -1.2mm 0 #176b68;
+  }
+
+  th.weekend {
     background-color: #eef3f6 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -2792,6 +2815,11 @@ function numeroOrden(value) {
 // ---- src/js/domain/incidencias.js ----
 const ESCENARIO_OFICIAL = "escenario-oficial";
 
+const TIPOS_MODIFICACION = {
+  INCIDENCIA: "incidencia",
+  TURNO_MANUAL: "turno_manual",
+};
+
 const TIPOS_INCIDENCIA = {
   V: {
     codigo: "V",
@@ -2844,7 +2872,46 @@ function aplicarIncidencia(state, profesional, diaBase, tipoIncidencia, escenari
     turnoBaseId: diaBase.turnoId || "",
     codigoTurnoBase: diaBase.codigo,
     horasTurnoBase: Number(diaBase.horas || 0),
+    tipoModificacion: TIPOS_MODIFICACION.INCIDENCIA,
     tipoIncidencia,
+    turnoManualId: "",
+    turnoManualCodigo: "",
+    turnoManualNombre: "",
+    horasTurnoManual: 0,
+    grupoCoberturaTurnoManual: "",
+    colorTurnoManual: "",
+    cuentaComoPresenciaTurnoManual: false,
+    creadoEn: existente?.creadoEn || now,
+    actualizadoEn: now,
+  };
+  if (existente) Object.assign(existente, payload);
+  else state.incidenciasDiarias.push(payload);
+  return payload;
+}
+
+function aplicarTurnoManual(state, profesional, diaBase, turnoManual, escenarioId = ESCENARIO_OFICIAL, now = new Date().toISOString()) {
+  if (!diaBase?.codigo || diaBase.fueraContrato || diaBase.sinCiclo) throw new Error("No se puede modificar una celda sin turno generado.");
+  if (!profesional?.activo) throw new Error("No se puede modificar el turno de un profesional inactivo.");
+  if (!turnoManual?.id || !turnoManual?.codigo || turnoManual.activo === false) throw new Error("El turno manual seleccionado no es valido o no esta activo.");
+  state.incidenciasDiarias ??= [];
+  const existente = obtenerIncidencia(state, profesional.id, diaBase.fecha, escenarioId);
+  const payload = {
+    id: existente?.id || crypto.randomUUID(),
+    profesionalId: profesional.id,
+    fecha: diaBase.fecha,
+    escenarioId,
+    turnoBaseId: diaBase.turnoId || "",
+    codigoTurnoBase: diaBase.codigo,
+    horasTurnoBase: Number(diaBase.horas || 0),
+    tipoModificacion: TIPOS_MODIFICACION.TURNO_MANUAL,
+    tipoIncidencia: "",
+    turnoManualId: turnoManual.id,
+    turnoManualCodigo: turnoManual.codigo,
+    turnoManualNombre: turnoManual.nombre || turnoManual.codigo,
+    horasTurnoManual: Number(turnoManual.horasComputables || 0),
+    grupoCoberturaTurnoManual: turnoManual.grupoCobertura || "otro",
+    colorTurnoManual: turnoManual.color || "#ffffff",
+    cuentaComoPresenciaTurnoManual: Boolean(turnoManual.cuentaComoPresencia),
     creadoEn: existente?.creadoEn || now,
     actualizadoEn: now,
   };
@@ -2866,10 +2933,12 @@ function eliminarIncidencia(state, profesionalId, fecha, escenarioId = ESCENARIO
 function resolverDiaConIncidencia(state, profesional, diaBase, fecha) {
   const incidencia = obtenerIncidencia(state, profesional.id, fecha);
   const horasBaseActuales = Number(diaBase?.horas || 0);
+  const turnoBase = (state.turnos || []).find((turno) => turno.id === diaBase?.turnoId || String(turno.codigo).toUpperCase() === String(diaBase?.codigo || "").toUpperCase());
   if (!incidencia || !diaBase?.codigo || diaBase.fueraContrato || diaBase.sinCiclo) {
     return {
       ...diaBase,
       codigoBase: diaBase?.codigo || "",
+      codigoAplicado: diaBase?.codigo || "",
       horasBase: horasBaseActuales,
       horasEfectivas: horasBaseActuales,
       horasVacaciones: 0,
@@ -2877,14 +2946,19 @@ function resolverDiaConIncidencia(state, profesional, diaBase, fecha) {
       incidencia: null,
       codigoVisible: diaBase?.codigo || "",
       colorIncidencia: "",
-      cuentaComoPresencia: true,
+      colorAplicado: turnoBase?.color || "",
+      cuentaComoPresencia: Boolean(turnoBase?.cuentaComoPresencia),
     };
   }
+  const esTurnoManual = incidencia.tipoModificacion === TIPOS_MODIFICACION.TURNO_MANUAL || Boolean(incidencia.turnoManualCodigo);
+  if (esTurnoManual) return resolverTurnoManual(state, diaBase, incidencia, horasBaseActuales);
   const tipo = TIPOS_INCIDENCIA[incidencia.tipoIncidencia];
+  if (!tipo) return resolverDiaConIncidencia({ ...state, incidenciasDiarias: [] }, profesional, diaBase, fecha);
   const horasDescontadas = horasBaseActuales;
   return {
     ...diaBase,
     codigoBase: diaBase.codigo,
+    codigoAplicado: tipo.codigo,
     horasBase: horasBaseActuales,
     horas: 0,
     horasEfectivas: 0,
@@ -2899,8 +2973,49 @@ function resolverDiaConIncidencia(state, profesional, diaBase, fecha) {
     },
     codigoVisible: tipo.codigo,
     colorIncidencia: tipo.color,
+    colorAplicado: tipo.color,
     cuentaComoPresencia: false,
+    grupoCobertura: "",
     esNoche: false,
+  };
+}
+
+function resolverTurnoManual(state, diaBase, modificacion, horasBaseActuales) {
+  const turnoCatalogo = (state.turnos || []).find((turno) => (
+    turno.id === modificacion.turnoManualId
+    || String(turno.codigo).toUpperCase() === String(modificacion.turnoManualCodigo || "").toUpperCase()
+  ));
+  const codigo = turnoCatalogo?.codigo || modificacion.turnoManualCodigo || "";
+  const horas = Number(turnoCatalogo?.horasComputables ?? modificacion.horasTurnoManual ?? 0);
+  const grupoCobertura = turnoCatalogo?.grupoCobertura || modificacion.grupoCoberturaTurnoManual || "otro";
+  const color = turnoCatalogo?.color || modificacion.colorTurnoManual || "#ffffff";
+  const cuentaComoPresencia = turnoCatalogo
+    ? Boolean(turnoCatalogo.cuentaComoPresencia)
+    : Boolean(modificacion.cuentaComoPresenciaTurnoManual);
+  return {
+    ...diaBase,
+    turnoId: turnoCatalogo?.id || modificacion.turnoManualId || "",
+    codigo,
+    codigoBase: diaBase.codigo,
+    codigoAplicado: codigo,
+    horasBase: horasBaseActuales,
+    horas,
+    horasEfectivas: horas,
+    horasVacaciones: 0,
+    horasLibreDisposicion: 0,
+    grupoCobertura,
+    esNoche: grupoCobertura === "noche",
+    cuentaComoPresencia,
+    codigoVisible: codigo,
+    colorIncidencia: "",
+    colorAplicado: color,
+    incidencia: {
+      ...modificacion,
+      codigoTurnoBaseActual: diaBase.codigo,
+      horasTurnoBaseActual: horasBaseActuales,
+      horasOriginalesIncidencia: Number(modificacion.horasTurnoBase || 0),
+      horasAlteradas: Number(modificacion.horasTurnoBase || 0) !== horasBaseActuales,
+    },
   };
 }
 
@@ -3041,7 +3156,10 @@ function calcularResumenProfesional(profesional, calendario, state) {
       horasLibreDisposicion += Number(dia.horasLibreDisposicion || 0);
       horas += Number(dia.horasEfectivas ?? dia.horas ?? 0);
       if (dia?.esNoche) noches += 1;
-      if (diaBase?.codigo) contarDesglose(diaBase, desglose);
+      const cuentaTurnoAplicado = !dia.incidencia
+        || dia.incidencia.tipoModificacion === TIPOS_MODIFICACION.TURNO_MANUAL
+        || Boolean(dia.incidencia.turnoManualCodigo);
+      if (cuentaTurnoAplicado && dia.codigoAplicado) contarDesglose(dia, desglose);
     }
     horasMes.push(roundHours(horas));
     total += horas;
@@ -3095,7 +3213,7 @@ function contarDesglose(dia, desglose) {
 function crearEstadoInicial() {
   const turnos = crearTurnosIniciales();
   return {
-    schemaVersion: 1,
+    schemaVersion: 3,
     config: {
       unidad: "Unidad de Enfermeria",
       hospital: "Hospital",
@@ -3148,7 +3266,7 @@ function crearProfesionalBase(state) {
 
 function migrarEstado(state) {
   if (!state || typeof state !== "object") return state;
-  state.schemaVersion = Math.max(Number(state.schemaVersion || 1), 2);
+  state.schemaVersion = Math.max(Number(state.schemaVersion || 1), 3);
   state.config ??= {};
   if (typeof state.config.mostrarLibresResumen !== "boolean") state.config.mostrarLibresResumen = true;
   if (typeof state.config.ultimaExportacionJson !== "string") state.config.ultimaExportacionJson = "";
@@ -3156,7 +3274,7 @@ function migrarEstado(state) {
   if (!Array.isArray(state.incidenciasDiarias)) state.incidenciasDiarias = [];
   migrarProfesionales(state.profesionales || []);
   migrarTurnos(state.turnos || []);
-  migrarIncidencias(state.incidenciasDiarias);
+  migrarIncidencias(state.incidenciasDiarias, state.turnos || []);
   return state;
 }
 
@@ -3181,11 +3299,25 @@ function migrarTurnos(turnos) {
   return turnos;
 }
 
-function migrarIncidencias(incidencias) {
+function migrarIncidencias(incidencias, turnos = []) {
   incidencias.forEach((incidencia) => {
     incidencia.fecha = normalizarFechaIso(incidencia.fecha) || incidencia.fecha;
     incidencia.escenarioId ||= ESCENARIO_OFICIAL;
     incidencia.horasTurnoBase = Number(incidencia.horasTurnoBase || 0);
+    incidencia.tipoModificacion ||= incidencia.turnoManualCodigo ? TIPOS_MODIFICACION.TURNO_MANUAL : TIPOS_MODIFICACION.INCIDENCIA;
+    if (incidencia.tipoModificacion === TIPOS_MODIFICACION.TURNO_MANUAL) {
+      const turno = turnos.find((item) => item.id === incidencia.turnoManualId || String(item.codigo).toUpperCase() === String(incidencia.turnoManualCodigo || "").toUpperCase());
+      incidencia.tipoIncidencia = "";
+      incidencia.turnoManualId ||= turno?.id || "";
+      incidencia.turnoManualCodigo ||= turno?.codigo || "";
+      incidencia.turnoManualNombre ||= turno?.nombre || incidencia.turnoManualCodigo;
+      incidencia.horasTurnoManual = Number(incidencia.horasTurnoManual ?? turno?.horasComputables ?? 0);
+      incidencia.grupoCoberturaTurnoManual ||= turno?.grupoCobertura || "otro";
+      incidencia.colorTurnoManual ||= turno?.color || "#ffffff";
+      if (typeof incidencia.cuentaComoPresenciaTurnoManual !== "boolean") incidencia.cuentaComoPresenciaTurnoManual = Boolean(turno?.cuentaComoPresencia);
+    } else {
+      incidencia.tipoModificacion = TIPOS_MODIFICACION.INCIDENCIA;
+    }
     incidencia.creadoEn ||= incidencia.actualizadoEn || new Date().toISOString();
     incidencia.actualizadoEn ||= incidencia.creadoEn;
   });
@@ -3200,7 +3332,6 @@ function normalizarEstado(state) {
 
 
 // ---- src/js/domain/resumenDiario.js ----
-
 
 
 
@@ -3236,11 +3367,10 @@ function calcularResumenDiarioTurnos(state, calendario, fechas, mostrarLibres = 
       const diaBase = calendario[profesional.id]?.[fecha];
       const dia = resolverDiaConIncidencia(state, profesional, diaBase, fecha);
       if (!dia?.codigoBase) continue;
-      const codigoResumen = dia.incidencia ? dia.codigoVisible : dia.codigoBase;
-      const turno = dia.incidencia ? null : buscarTurnoPorCodigo(state.turnos, dia.codigoBase);
+      const codigoResumen = dia.codigoVisible || dia.codigoAplicado || dia.codigoBase;
       const fila = filaPorCodigo.get(String(codigoResumen).toUpperCase());
       if (fila) fila.conteos[fecha] += 1;
-      if (!dia.incidencia && turno?.cuentaComoPresencia) totalPresencia[fecha] += 1;
+      if (dia.cuentaComoPresencia) totalPresencia[fecha] += 1;
     }
   }
 
@@ -3251,9 +3381,10 @@ function obtenerTurnosRelevantes(state, calendario, fechas, mostrarLibres = true
   const codigosUsados = new Set();
   for (const profesional of state.profesionales || []) {
     for (const fecha of fechas) {
-      const codigo = calendario[profesional.id]?.[fecha]?.codigo;
-      const incidencia = state.incidenciasDiarias?.find((item) => item.profesionalId === profesional.id && item.fecha === fecha);
-      if (codigo && !incidencia) codigosUsados.add(String(codigo).toUpperCase());
+      const diaBase = calendario[profesional.id]?.[fecha];
+      const dia = resolverDiaConIncidencia(state, profesional, diaBase, fecha);
+      const codigo = dia?.codigoVisible || dia?.codigoAplicado || dia?.codigoBase;
+      if (codigo && !TIPOS_INCIDENCIA[codigo]) codigosUsados.add(String(codigo).toUpperCase());
     }
   }
   return obtenerTurnosOrdenados(state.turnos || []).filter((turno) => {
@@ -3353,7 +3484,7 @@ async function readStore(db, storeName) {
 const BACKUP_APPLICATION_NAME = "Gestor Local de Turnos de Enfermería";
 const BACKUP_LEGACY_APP_ID = "gestor-turnos-enfermeria";
 const BACKUP_SCHEMA_VERSION = 1;
-const APP_VERSION = "0.1.2";
+const APP_VERSION = "0.1.3";
 
 function crearBackup(state, databaseSnapshot = null, exportedAt = new Date().toISOString()) {
   const data = migrarEstado(structuredClone(state));
@@ -3532,7 +3663,16 @@ function validarEstado(data, errores) {
     if (!incidencia.id) errores.push("Hay una incidencia sin identificador.");
     if (!profesionales.has(incidencia.profesionalId)) errores.push(`Incidencia con profesional inexistente: ${incidencia.profesionalId}.`);
     validarFecha(incidencia.fecha, `Fecha no válida en incidencia ${incidencia.id || ""}.`, errores);
-    if (!["V", "LD"].includes(incidencia.tipoIncidencia)) errores.push(`Tipo de incidencia no válido: ${incidencia.tipoIncidencia}.`);
+    const tipoModificacion = incidencia.tipoModificacion || (incidencia.turnoManualCodigo ? "turno_manual" : "incidencia");
+    if (!["incidencia", "turno_manual"].includes(tipoModificacion)) errores.push(`Tipo de modificación no válido: ${tipoModificacion}.`);
+    if (tipoModificacion === "incidencia" && !["V", "LD"].includes(incidencia.tipoIncidencia)) errores.push(`Tipo de incidencia no válido: ${incidencia.tipoIncidencia}.`);
+    if (tipoModificacion === "turno_manual") {
+      if (!incidencia.turnoManualCodigo) errores.push(`Modificación manual sin código de turno: ${incidencia.id || ""}.`);
+      if (!Number.isFinite(Number(incidencia.horasTurnoManual)) || Number(incidencia.horasTurnoManual) < 0) errores.push(`Horas de turno manual no válidas en modificación ${incidencia.id || ""}.`);
+      if (!incidencia.grupoCoberturaTurnoManual) errores.push(`Modificación manual sin grupo de cobertura: ${incidencia.id || ""}.`);
+      if (!/^#[0-9a-f]{6}$/i.test(String(incidencia.colorTurnoManual || ""))) errores.push(`Color de turno manual no válido en modificación ${incidencia.id || ""}.`);
+      if (typeof incidencia.cuentaComoPresenciaTurnoManual !== "boolean") errores.push(`Presencia de turno manual no válida en modificación ${incidencia.id || ""}.`);
+    }
     if (!incidencia.codigoTurnoBase) errores.push(`Incidencia sin código de turno base: ${incidencia.id || ""}.`);
     if (!Number.isFinite(Number(incidencia.horasTurnoBase)) || Number(incidencia.horasTurnoBase) < 0) errores.push(`Horas de turno base no válidas en incidencia ${incidencia.id || ""}.`);
     const clave = `${incidencia.profesionalId}|${incidencia.fecha}|${incidencia.escenarioId || "escenario-oficial"}`;
@@ -3894,13 +4034,12 @@ function tablaCuadrante(state, calendario, selectedMonth) {
       const diaBase = calendario[p.id]?.[fecha] || {};
       const dia = resolverDiaConIncidencia(state, p, diaBase, fecha);
       total += Number((dia.horasEfectivas ?? dia.horas) || 0);
-      const turno = state.turnos.find((t) => t.codigo === dia.codigoBase || t.codigo === dia.codigo);
+      const turno = state.turnos.find((t) => t.id === dia.turnoId || t.codigo === dia.codigoAplicado || t.codigo === dia.codigo);
       const wd = weekdayIndex(fecha);
       const editable = diaBase.codigo && !diaBase.fueraContrato && !diaBase.sinCiclo;
-      const title = dia.incidencia
-        ? `${TIPOS_INCIDENCIA[dia.incidencia.tipoIncidencia].nombre}\nTurno previsto: ${dia.codigoBase}\nHoras descontadas: ${dia.horasVacaciones || dia.horasLibreDisposicion}`
-        : (turno ? `${turno.nombre} · ${turno.inicio || ""}-${turno.fin || ""} · ${turno.horasComputables} h` : "Fuera de contrato o sin ciclo");
-      return `<td class="shift-cell ${dia.incidencia ? "incidence-cell" : ""} ${wd === 0 || wd === 6 ? "weekend" : ""} ${fecha === today ? "today" : ""}" ${editable ? `data-action="edit-incidencia" data-id="${p.id}" data-fecha="${fecha}"` : ""} style="background:${dia.colorIncidencia || turno?.color || "#fff"}" title="${escapeAttr(title)}">${escapeHtml(dia.codigoVisible || dia.codigo || "")}</td>`;
+      const esTurnoManual = dia.incidencia?.tipoModificacion === TIPOS_MODIFICACION.TURNO_MANUAL || Boolean(dia.incidencia?.turnoManualCodigo);
+      const title = tooltipDiaCuadrante(dia, turno, esTurnoManual);
+      return `<td class="shift-cell ${dia.incidencia ? "modified-cell" : ""} ${esTurnoManual ? "manual-shift-cell" : dia.incidencia ? "incidence-cell" : ""} ${wd === 0 || wd === 6 ? "weekend" : ""} ${fecha === today ? "today" : ""}" ${editable ? `data-action="edit-incidencia" data-id="${p.id}" data-fecha="${fecha}"` : ""} style="background:${dia.colorAplicado || dia.colorIncidencia || turno?.color || "#fff"}" title="${escapeAttr(title)}">${escapeHtml(dia.codigoVisible || dia.codigo || "")}</td>`;
     }).join("");
     return `<tr><td>${escapeHtml(p.nombre || p.identificador)}</td>${cells}<td><strong>${fmt(total)}</strong></td></tr>`;
   }).join("");
@@ -3944,8 +4083,8 @@ function renderJornada(state, resumenes) {
           <button type="button" class="secondary" data-action="print-summary-individual">Imprimir resumen individual</button>
         </div>
       </div>
-      <div class="notice jornada-note">Las horas base previstas corresponden al turno originalmente proyectado. Las vacaciones y libres de disposición se descuentan como ausencia sobre el turno previsto. Las horas efectivas muestran la jornada programada tras aplicar esas incidencias.</div>
-      <div class="table-wrap"><table><thead><tr><th>Profesional</th><th>Modalidad</th><th>Noches base</th><th>Jornada normativa</th><th>%</th><th>Objetivo</th><th>Base prevista</th><th>Vacaciones</th><th>LD</th><th>Efectivas</th><th>Diferencia</th><th>Estado</th><th>Saldo vacaciones</th><th>Saldo LD</th><th>Alertas</th></tr></thead><tbody>${rows || emptyRow(15)}</tbody></table></div>
+      <div class="notice jornada-note">Las horas base previstas corresponden al turno proyectado por el ciclo. Las horas efectivas, noches, presencia y jornada objetivo se recalculan con el turno finalmente aplicado tras ausencias o cambios manuales.</div>
+      <div class="table-wrap"><table><thead><tr><th>Profesional</th><th>Modalidad</th><th>Noches efectivas</th><th>Jornada normativa</th><th>%</th><th>Objetivo</th><th>Base prevista</th><th>Vacaciones</th><th>LD</th><th>Efectivas</th><th>Diferencia</th><th>Estado</th><th>Saldo vacaciones</th><th>Saldo LD</th><th>Alertas</th></tr></thead><tbody>${rows || emptyRow(15)}</tbody></table></div>
     </div>
   `;
 }
@@ -3996,7 +4135,7 @@ function renderIncidenceModal(modal) {
       <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="incidenceModalTitle">
         <div class="modal-header">
           <div>
-            <h2 id="incidenceModalTitle">Editar incidencia</h2>
+            <h2 id="incidenceModalTitle">Editar turno del día</h2>
             <p>${escapeHtml(modal.profesionalNombre)} · ${formatIsoDate(modal.fecha)}</p>
           </div>
           <button type="button" class="ghost modal-close" data-action="close-incidence-modal" aria-label="Cerrar">Cerrar</button>
@@ -4004,12 +4143,23 @@ function renderIncidenceModal(modal) {
         <div class="modal-summary">
           <div><span>Turno previsto</span><strong>${escapeHtml(modal.turnoPrevisto || "-")}</strong></div>
           <div><span>Horas previstas</span><strong>${fmt(modal.horasTurno)} h</strong></div>
+          <div><span>Turno aplicado</span><strong>${escapeHtml(modal.turnoAplicado || "-")}</strong></div>
+          <div><span>Horas aplicadas</span><strong>${fmt(modal.horasAplicadas)} h</strong></div>
+          <div><span>Presencia</span><strong>${modal.cuentaComoPresenciaAplicada ? "Sí" : "No"}</strong></div>
+          <div><span>Noche efectiva</span><strong>${modal.esNocheAplicada ? "Sí" : "No"}</strong></div>
         </div>
         <fieldset class="incidence-options">
           <legend>Acción</legend>
           ${incidenceOption("original", "Mantener turno original", accion)}
-          ${incidenceOption("V", "Vacaciones", accion)}
-          ${incidenceOption("LD", "Libre disposición", accion)}
+          ${incidenceOption("V", "Vacaciones · V", accion)}
+          ${incidenceOption("LD", "Libre disposición · LD", accion)}
+          <div class="incidence-option-heading">Turnos activos del catálogo</div>
+          ${(modal.turnosDisponibles || []).map((turno) => incidenceOption(
+            `turno:${turno.id}`,
+            `${turno.codigo} · ${turno.nombre} · ${fmt(turno.horasComputables)} h${turno.activo ? "" : " · Inactivo, actualmente aplicado"}`,
+            accion,
+            turno.color,
+          )).join("")}
         </fieldset>
         <div class="saldo-grid">
           ${saldoCard("Vacaciones", modal.vacaciones)}
@@ -4031,8 +4181,20 @@ function renderIncidenceModal(modal) {
   `;
 }
 
-function incidenceOption(value, label, current) {
-  return `<label class="incidence-option"><input type="radio" name="incidenceAction" value="${escapeAttr(value)}" ${current === value ? "checked" : ""}> <span>${escapeHtml(label)}</span></label>`;
+function incidenceOption(value, label, current, color = "") {
+  return `<label class="incidence-option"><input type="radio" name="incidenceAction" value="${escapeAttr(value)}" ${current === value ? "checked" : ""}> ${color ? `<i class="shift-swatch" style="background:${escapeAttr(color)}"></i>` : ""}<span>${escapeHtml(label)}</span></label>`;
+}
+
+function tooltipDiaCuadrante(dia, turno, esTurnoManual) {
+  if (!dia.incidencia) return turno ? `${turno.nombre} · ${turno.inicio || ""}-${turno.fin || ""} · ${turno.horasComputables} h` : "Fuera de contrato o sin ciclo";
+  const tipo = esTurnoManual ? "Cambio manual de turno" : TIPOS_INCIDENCIA[dia.incidencia.tipoIncidencia]?.nombre || "Incidencia";
+  return [
+    tipo,
+    `Turno previsto: ${dia.codigoBase || "-"} (${fmt(dia.horasBase)} h)`,
+    `Turno aplicado: ${dia.codigoVisible || "-"} (${fmt(dia.horasEfectivas)} h)`,
+    `Presencia: ${dia.cuentaComoPresencia ? "Sí" : "No"}`,
+    `Noche efectiva: ${dia.esNoche ? "Sí" : "No"}`,
+  ].join("\n");
 }
 
 function saldoCard(label, saldo = {}) {
@@ -4103,6 +4265,7 @@ function imprimirCuadranteMensual(state, calendario, selectedMonth) {
     ]),
     body: `
       ${tablaCuadranteMes(state, calendario, selectedMonth)}
+      ${notaTurnosModificados()}
       ${firmaBloque()}
     `,
   });
@@ -4115,6 +4278,7 @@ function imprimirCuadranteAnual(state, calendario) {
       ${cabeceraInstitucional("Cuadrante anual de turnos", mes)}
       ${metadataGrid(metadatosBase(state, [["Mes", mes], ["Fecha de impresión", fechaHoraImpresion()]]))}
       ${tablaCuadranteMes(state, calendario, month, { compact: true })}
+      ${notaTurnosModificados()}
       ${firmaBloque()}
     </section>
   `).join("");
@@ -4164,9 +4328,9 @@ function generarHtmlImpresionParaPruebas(tipo, state, calendario, resumenes, sel
     title: "Cuadrante mensual de turnos",
     subtitle: `${PRINT_MESES[selectedMonth]} ${state.config.anioActivo}`,
     meta: metadatosBase(state, [["Mes", PRINT_MESES[selectedMonth]], ["Fecha de impresión", fechaHoraImpresion()]]),
-    body: `${tablaCuadranteMes(state, calendario, selectedMonth)}${firmaBloque()}`,
+    body: `${tablaCuadranteMes(state, calendario, selectedMonth)}${notaTurnosModificados()}${firmaBloque()}`,
   });
-  if (tipo === "anio") return `<div class="print-document annual-document">${PRINT_MESES.map((mes, month) => `<section class="print-page month-block">${cabeceraInstitucional("Cuadrante anual de turnos", mes)}${metadataGrid(metadatosBase(state, [["Mes", mes], ["Fecha de impresión", fechaHoraImpresion()]]))}${tablaCuadranteMes(state, calendario, month, { compact: true })}${firmaBloque()}</section>`).join("")}</div>`;
+  if (tipo === "anio") return `<div class="print-document annual-document">${PRINT_MESES.map((mes, month) => `<section class="print-page month-block">${cabeceraInstitucional("Cuadrante anual de turnos", mes)}${metadataGrid(metadatosBase(state, [["Mes", mes], ["Fecha de impresión", fechaHoraImpresion()]]))}${tablaCuadranteMes(state, calendario, month, { compact: true })}${notaTurnosModificados()}${firmaBloque()}</section>`).join("")}</div>`;
   if (tipo === "general") return printDocument({
     title: "Resumen general de jornada",
     subtitle: String(state.config.anioActivo),
@@ -4256,7 +4420,7 @@ function tablaCuadranteMes(state, calendario, selectedMonth, options = {}) {
       const dia = diaVisible(state, calendario, profesional, fecha);
       total += Number((dia.horasEfectivas ?? dia.horas) || 0);
       const wd = weekdayIndex(fecha);
-      return `<td class="print-shift ${wd === 0 || wd === 6 ? "weekend" : ""}" style="background:${printEscapeAttr(colorTurno(state, dia))}">${printEscapeHtml(dia.codigoVisible || dia.codigo || "")}</td>`;
+      return `<td class="print-shift ${dia.incidencia ? "print-modified-shift" : ""} ${wd === 0 || wd === 6 ? "weekend" : ""}" style="background:${printEscapeAttr(colorTurno(state, dia))}">${printEscapeHtml(dia.codigoVisible || dia.codigo || "")}</td>`;
     }).join("");
     return `<tr><td class="print-sticky-name">${printEscapeHtml(profesional.nombre || profesional.identificador)}</td>${cells}<td>${printFmt(total)}</td></tr>`;
   }).join("");
@@ -4313,7 +4477,11 @@ function tablaResumenGeneral(state, calendario, resumenes) {
 }
 
 function notaResumenJornada() {
-  return `<p class="print-note">Las horas base previstas corresponden al turno originalmente proyectado. Vacaciones y libre disposición se descuentan como ausencia sobre ese turno; las horas efectivas reflejan la jornada programada tras aplicarlas.</p>`;
+  return `<p class="print-note">Las horas base previstas corresponden al turno originalmente proyectado. Vacaciones y libre disposición se descuentan como ausencia; los cambios manuales computan las horas, presencia y noches del turno aplicado.</p>`;
+}
+
+function notaTurnosModificados() {
+  return `<p class="print-note">Los turnos modificados manualmente se muestran con el código aplicado.</p>`;
 }
 
 function tablaPlanillaIndividual(state, calendario, profesional) {
@@ -4328,7 +4496,7 @@ function tablaPlanillaIndividual(state, calendario, profesional) {
       if (!fecha) return `<td class="empty-day"></td>`;
       const wd = weekdayIndex(fecha);
       const dia = diaVisible(state, calendario, profesional, fecha);
-      return `<td class="print-shift ${wd === 0 || wd === 6 ? "weekend" : ""}" style="background:${printEscapeAttr(colorTurno(state, dia))}">${printEscapeHtml(dia.codigoVisible || dia.codigo || "")}</td>`;
+      return `<td class="print-shift ${dia.incidencia ? "print-modified-shift" : ""} ${wd === 0 || wd === 6 ? "weekend" : ""}" style="background:${printEscapeAttr(colorTurno(state, dia))}">${printEscapeHtml(dia.codigoVisible || dia.codigo || "")}</td>`;
     }).join("");
     return `<tr><td class="month-name">${printEscapeHtml(mes)}</td>${cells}</tr>`;
   }).join("");
@@ -4394,7 +4562,9 @@ function contarTurnosProfesional(state, calendario, profesional) {
     for (const fecha of monthDates(Number(state.config.anioActivo), month)) {
       const dia = diaVisible(state, calendario, profesional, fecha);
       const codigo = String(dia.codigoVisible || dia.codigo || "").toUpperCase();
-      const turno = state.turnos.find((item) => item.codigo === (dia.codigoBase || dia.codigo));
+      const esTurnoManual = dia.incidencia?.tipoModificacion === TIPOS_MODIFICACION.TURNO_MANUAL || Boolean(dia.incidencia?.turnoManualCodigo);
+      if (dia.incidencia && !esTurnoManual) continue;
+      const turno = state.turnos.find((item) => item.id === dia.turnoId || item.codigo === (dia.codigoAplicado || dia.codigo));
       if (!codigo) continue;
       if (codigo === "D12") conteos.d12 += 1;
       if (codigo === "N12") conteos.n12 += 1;
@@ -4414,8 +4584,8 @@ function diaVisible(state, calendario, profesional, fecha) {
 }
 
 function colorTurno(state, dia) {
-  if (dia.colorIncidencia) return dia.colorIncidencia;
-  const turno = state.turnos.find((item) => item.codigo === (dia.codigoBase || dia.codigo));
+  if (dia.colorAplicado || dia.colorIncidencia) return dia.colorAplicado || dia.colorIncidencia;
+  const turno = state.turnos.find((item) => item.id === dia.turnoId || item.codigo === (dia.codigoAplicado || dia.codigo));
   return turno?.color || "#ffffff";
 }
 
@@ -4544,7 +4714,7 @@ function bindEvents() {
     const errores = validarProfesional(data);
     if (errores.length) return notify(errores.join(" "), true);
     const existing = state.profesionales.find((item) => item.id === data.id);
-    if (existing && profesionalTieneIncidencias(existing.id) && cambiaBaseProfesional(existing, data) && !confirm("Este profesional tiene vacaciones o libre disposición registradas. Si cambia ciclo o fechas, se mantendrán las incidencias pero pueden cambiar las horas descontadas. ¿Desea continuar?")) return;
+    if (existing && profesionalTieneIncidencias(existing.id) && cambiaBaseProfesional(existing, data) && !confirm("Este profesional tiene modificaciones diarias registradas. Si cambia ciclo o fechas, se mantendrán, pero puede cambiar su turno base de referencia. ¿Desea continuar?")) return;
     const payload = {
       ...(existing || crearProfesionalBase(state)),
       ...data,
@@ -4586,7 +4756,7 @@ function bindEvents() {
     try {
       const codigos = parsearSecuencia(data.secuencia).map((codigo) => codigo.toUpperCase());
       const existing = state.ciclos.find((item) => item.id === data.id);
-      if (existing && cicloTieneIncidencias(existing.id) && !confirm("Este ciclo tiene incidencias asociadas a profesionales. Al cambiar la secuencia se mantendrán V/LD, pero pueden cambiar las horas descontadas según el nuevo turno base. ¿Desea continuar?")) return;
+      if (existing && cicloTieneIncidencias(existing.id) && !confirm("Este ciclo tiene modificaciones diarias asociadas. Al cambiar la secuencia se mantendrán, pero puede cambiar su turno base de referencia. ¿Desea continuar?")) return;
       if (existing) Object.assign(existing, { nombre: data.nombre, codigos });
       else state.ciclos.push(crearCiclo(data.nombre, codigos, state.turnos));
       await persist();
@@ -4676,7 +4846,9 @@ async function handleAction(event) {
     await persist();
   }
   if (action === "delete-turno" && confirm("¿Eliminar o desactivar turno? Si está en uso se desactivará.")) {
-    const enUso = state.ciclos.some((ciclo) => ciclo.codigos.includes(state.turnos.find((t) => t.id === id)?.codigo));
+    const turnoAEliminar = state.turnos.find((t) => t.id === id);
+    const enUso = state.ciclos.some((ciclo) => ciclo.codigos.includes(turnoAEliminar?.codigo))
+      || state.incidenciasDiarias.some((modificacion) => modificacion.turnoManualId === id || modificacion.turnoManualCodigo === turnoAEliminar?.codigo);
     if (enUso) state.turnos.find((item) => item.id === id).activo = false;
     else state.turnos = state.turnos.filter((item) => item.id !== id);
     await persist();
@@ -4780,10 +4952,10 @@ function abrirModalIncidencia(profesionalId, fecha) {
   const profesional = state.profesionales.find((item) => item.id === profesionalId);
   const diaBase = calendario[profesionalId]?.[fecha];
   if (!profesional || !diaBase?.codigo || diaBase.fueraContrato || diaBase.sinCiclo) {
-    return notify("No se puede aplicar una incidencia en una celda sin turno generado o fuera de contrato.", true);
+    return notify("No se puede modificar una celda sin turno generado o fuera de contrato.", true);
   }
   const actual = state.incidenciasDiarias.find((item) => item.profesionalId === profesionalId && item.fecha === fecha);
-  incidenceModal = crearDatosModalIncidencia(profesionalId, fecha, actual?.tipoIncidencia || "original", false);
+  incidenceModal = crearDatosModalIncidencia(profesionalId, fecha, accionDesdeModificacion(actual), false);
   recalcAndRender();
   setTimeout(() => root.querySelector("[data-action='confirm-incidence-modal']")?.focus(), 0);
 }
@@ -4797,12 +4969,33 @@ function crearDatosModalIncidencia(profesionalId, fecha, accion = "original", co
   const saldoSeleccionado = accion === "V" ? vacaciones : accion === "LD" ? libreDisposicion : null;
   const horasTurno = Number(diaBase.horas || 0);
   const excesoSeleccionado = saldoSeleccionado ? Math.max(0, horasTurno - Math.max(0, saldoSeleccionado.pendientes)) : 0;
+  const turnoManualActual = actual && (actual.tipoModificacion === TIPOS_MODIFICACION.TURNO_MANUAL || actual.turnoManualCodigo)
+    ? state.turnos.find((turno) => turno.id === actual.turnoManualId || String(turno.codigo).toUpperCase() === String(actual.turnoManualCodigo || "").toUpperCase())
+    : null;
+  const turnosDisponibles = obtenerTurnosOrdenados(state.turnos || []).filter((turno) => turno.activo !== false || turno.id === turnoManualActual?.id);
+  const turnoBase = state.turnos.find((turno) => turno.id === diaBase.turnoId || String(turno.codigo).toUpperCase() === String(diaBase.codigo || "").toUpperCase());
+  const turnoSeleccionado = accion.startsWith("turno:") ? turnosDisponibles.find((turno) => turno.id === accion.slice(6)) : null;
+  const aplicado = turnoSeleccionado || (accion === "original" ? turnoBase : null);
   return {
     profesionalId,
     fecha,
     profesionalNombre: profesional?.nombre || profesional?.identificador || "",
     turnoPrevisto: diaBase.codigo || "",
     horasTurno,
+    turnoAplicado: aplicado?.codigo || (TIPOS_INCIDENCIA[accion]?.codigo || diaBase.codigo || ""),
+    horasAplicadas: aplicado ? Number(aplicado.horasComputables || 0) : 0,
+    cuentaComoPresenciaAplicada: Boolean(aplicado?.cuentaComoPresencia),
+    esNocheAplicada: aplicado?.grupoCobertura === "noche",
+    turnosDisponibles: turnosDisponibles.map((turno) => ({
+      id: turno.id,
+      codigo: turno.codigo,
+      nombre: turno.nombre,
+      horasComputables: Number(turno.horasComputables || 0),
+      grupoCobertura: turno.grupoCobertura,
+      color: turno.color,
+      cuentaComoPresencia: Boolean(turno.cuentaComoPresencia),
+      activo: turno.activo !== false,
+    })),
     accion,
     confirmaExceso,
     error,
@@ -4831,7 +5024,7 @@ async function confirmarIncidenciaModal() {
   const profesional = state.profesionales.find((item) => item.id === profesionalId);
   const diaBase = calendario[profesionalId]?.[fecha];
   if (!profesional || !diaBase?.codigo || diaBase.fueraContrato || diaBase.sinCiclo) {
-    incidenceModal = crearDatosModalIncidencia(profesionalId, fecha, accion, false, "No se puede aplicar una incidencia en una celda sin turno generado o fuera de contrato.");
+    incidenceModal = crearDatosModalIncidencia(profesionalId, fecha, accion, false, "No se puede modificar una celda sin turno generado o fuera de contrato.");
     recalcAndRender();
     return;
   }
@@ -4841,13 +5034,20 @@ async function confirmarIncidenciaModal() {
     await persist();
     return;
   }
-  if (!TIPOS_INCIDENCIA[accion]) {
+  const turnoManualId = accion.startsWith("turno:") ? accion.slice(6) : "";
+  const modificacionActual = state.incidenciasDiarias.find((item) => item.profesionalId === profesionalId && item.fecha === fecha);
+  const turnoManual = turnoManualId ? state.turnos.find((turno) => turno.id === turnoManualId && (
+    turno.activo !== false
+    || modificacionActual?.turnoManualId === turno.id
+    || modificacionActual?.turnoManualCodigo === turno.codigo
+  )) : null;
+  if (!TIPOS_INCIDENCIA[accion] && !turnoManual) {
     incidenceModal = crearDatosModalIncidencia(profesionalId, fecha, "original", false, "Seleccione una opción válida.");
     recalcAndRender();
     return;
   }
   const datosActualizados = crearDatosModalIncidencia(profesionalId, fecha, accion, incidenceModal.confirmaExceso);
-  if (datosActualizados.excesoSeleccionado > 0 && !datosActualizados.confirmaExceso) {
+  if (TIPOS_INCIDENCIA[accion] && datosActualizados.excesoSeleccionado > 0 && !datosActualizados.confirmaExceso) {
     incidenceModal = {
       ...datosActualizados,
       error: `La incidencia supera el saldo disponible en ${datosActualizados.excesoSeleccionado} h. Marque la confirmación para continuar.`,
@@ -4855,9 +5055,19 @@ async function confirmarIncidenciaModal() {
     recalcAndRender();
     return;
   }
-  aplicarIncidencia(state, profesional, diaBase, accion);
+  if (turnoManual) aplicarTurnoManual(state, profesional, diaBase, turnoManual);
+  else aplicarIncidencia(state, profesional, diaBase, accion);
   incidenceModal = null;
   await persist();
+}
+
+function accionDesdeModificacion(modificacion) {
+  if (!modificacion) return "original";
+  if (modificacion.tipoModificacion === TIPOS_MODIFICACION.TURNO_MANUAL || modificacion.turnoManualCodigo) {
+    const turno = state.turnos.find((item) => item.id === modificacion.turnoManualId || String(item.codigo).toUpperCase() === String(modificacion.turnoManualCodigo || "").toUpperCase());
+    return turno?.id ? `turno:${turno.id}` : "original";
+  }
+  return modificacion.tipoIncidencia || "original";
 }
 
 function redondearHoras(value) {

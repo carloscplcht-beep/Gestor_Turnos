@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -30,13 +30,12 @@ async function main() {
     "--headless=new",
     "--no-sandbox",
     "--disable-gpu",
-    "--disable-gpu-compositing",
-    "--disable-software-rasterizer",
     "--disable-dev-shm-usage",
     "--disable-extensions",
     "--disable-crash-reporter",
     "--disable-breakpad",
     "--no-first-run",
+    "--window-size=1440,1000",
     `--user-data-dir=${profile}`,
     `--remote-debugging-port=${debugPort}`,
     "about:blank",
@@ -58,6 +57,10 @@ async function main() {
     await waitForLoad(cdp);
     const afterReload = await evaluate(cdp, browserScenarioAfterReload, { timeout: 120000 });
     const result = { ...beforeReload, ...afterReload, consoleErrors: [...beforeReload.consoleErrors, ...afterReload.consoleErrors] };
+    if (process.env.GESTOR_SCREENSHOT_PATH) {
+      const capture = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+      await writeFile(process.env.GESTOR_SCREENSHOT_PATH, Buffer.from(capture.data, "base64"));
+    }
     assertDeepEqual(result.formValues, expectedJan1.map(({ nombre, fechaInicioCiclo }) => ({ nombre, fechaInicioCiclo, posicionInicial: 0 })), "valores de formulario");
     assertDeepEqual(result.savedValues, expectedJan1.map(({ nombre, fechaInicioCiclo }) => ({ nombre, fechaInicioCiclo, posicionInicial: 0 })), "valores guardados");
     assertDeepEqual(result.indexedDbBeforeReload, expectedJan1.map(({ nombre, fechaInicioCiclo }) => ({ nombre, fechaInicioCiclo, posicionInicial: 0 })), "IndexedDB antes de recargar");
@@ -90,8 +93,9 @@ async function main() {
     if (!result.recalculateDiagnostics.some((entry) => entry.includes("Recálculo cuadrante 2026-01-01"))) {
       throw new Error(`No se emitio diagnostico de recalculo: ${JSON.stringify(result.recalculateDiagnostics)}`);
     }
-    if (!result.incidenceChecks?.vacaciones || !result.incidenceChecks?.libreDisposicion || !result.incidenceChecks?.original || !result.incidenceChecks?.exceso || !result.incidenceChecks?.jsonImport) {
-      throw new Error(`El flujo modal de incidencias no se completo: ${JSON.stringify(result.incidenceChecks)}`);
+    const requiredModificationChecks = ["catalogOptions", "manualD12M", "manualD12N12", "manualN12L", "manualTooltip", "vacaciones", "libreDisposicion", "original", "exceso", "jsonImport"];
+    if (requiredModificationChecks.some((key) => !result.incidenceChecks?.[key])) {
+      throw new Error(`El flujo modal de modificaciones no se completo: ${JSON.stringify(result.incidenceChecks)}`);
     }
     if (!result.incidenceChecks.printAfterIncidences) {
       throw new Error(`La impresion tras incidencias no contiene V y LD: ${JSON.stringify(result.incidenceChecks)}`);
@@ -466,8 +470,8 @@ async function browserScenarioAfterReload() {
   const renderedSequences = rows.map((row) => Array.from(row.querySelectorAll("td.shift-cell")).slice(0, 8).map((cell) => cell.textContent.trim()).join(","));
   const navTexts = Array.from(document.querySelectorAll(".nav-button")).map((button) => button.textContent.trim());
   const encodingChecks = await inspectEncodingAcrossTabs();
-  const incidenceChecks = await exerciseIncidenceModal();
   const printChecks = await exercisePrintViews();
+  const incidenceChecks = await exerciseIncidenceModal();
 
   return {
     indexedDbAfterReload,
@@ -550,6 +554,11 @@ async function browserScenarioAfterReload() {
     document.querySelector('[data-tab="cuadrante"]').click();
     await waitFor(() => document.querySelector("#cuadrante table.calendar"));
     const checks = {
+      catalogOptions: false,
+      manualD12M: false,
+      manualD12N12: false,
+      manualN12L: false,
+      manualTooltip: false,
       vacaciones: false,
       libreDisposicion: false,
       original: false,
@@ -557,6 +566,46 @@ async function browserScenarioAfterReload() {
       jsonImport: false,
       printAfterIncidences: false,
     };
+
+    openCell("P7", 1);
+    await waitFor(() => document.querySelector(".modal-card"));
+    checks.catalogOptions = ["M", "T", "N", "D12", "N12", "L"].every((codigo) => Boolean(document.querySelector(`input[name="incidenceAction"][value="${turnoAction(codigo)}"]`)));
+    document.querySelector('[data-action="close-incidence-modal"]').click();
+    await waitFor(() => !document.querySelector(".modal-card"));
+
+    const resumenP7AntesM = resumenes.find((item) => item.profesionalId === profesionalId("P7"));
+    const diarioAntesM = calcularResumenDiarioTurnos(state, calendario, ["2026-01-01"], true);
+    const mAntes = diarioAntesM.filas.find((fila) => fila.codigo === "M")?.conteos["2026-01-01"] || 0;
+    await aplicarIncidenciaDesdeModal("P7", 1, turnoAction("M"));
+    const stateD12M = await readStateFromIndexedDb();
+    const modificacionD12M = stateD12M.incidenciasDiarias.find((item) => item.profesionalId === profesionalId("P7") && item.fecha === "2026-01-01");
+    const resumenP7DespuesM = resumenes.find((item) => item.profesionalId === profesionalId("P7"));
+    const diarioDespuesM = calcularResumenDiarioTurnos(state, calendario, ["2026-01-01"], true);
+    checks.manualD12M = cellText("P7", 1) === "M"
+      && modificacionD12M?.tipoModificacion === "turno_manual"
+      && modificacionD12M?.codigoTurnoBase === "D12"
+      && modificacionD12M?.turnoManualCodigo === "M"
+      && resumenP7AntesM.horasMes[0] - resumenP7DespuesM.horasMes[0] === 5
+      && (diarioDespuesM.filas.find((fila) => fila.codigo === "M")?.conteos["2026-01-01"] || 0) === mAntes + 1;
+    checks.manualTooltip = rowForProfessional("P7")?.querySelectorAll("td.shift-cell")[0]?.title?.includes("Turno previsto: D12 (12 h)")
+      && rowForProfessional("P7")?.querySelectorAll("td.shift-cell")[0]?.title?.includes("Turno aplicado: M (7 h)");
+
+    await aplicarIncidenciaDesdeModal("P7", 1, "original");
+    const nochesP7Antes = resumenes.find((item) => item.profesionalId === profesionalId("P7")).noches;
+    const objetivoP7Antes = resumenes.find((item) => item.profesionalId === profesionalId("P7")).jornada.objetivo;
+    await aplicarIncidenciaDesdeModal("P7", 1, turnoAction("N12"));
+    const resumenP7N12 = resumenes.find((item) => item.profesionalId === profesionalId("P7"));
+    checks.manualD12N12 = cellText("P7", 1) === "N12" && resumenP7N12.noches === nochesP7Antes + 1 && resumenP7N12.jornada.objetivo !== objetivoP7Antes;
+    await aplicarIncidenciaDesdeModal("P7", 1, "original");
+
+    const nochesP6Antes = resumenes.find((item) => item.profesionalId === profesionalId("P6")).noches;
+    await aplicarIncidenciaDesdeModal("P6", 1, turnoAction("L"));
+    const resumenP6L = resumenes.find((item) => item.profesionalId === profesionalId("P6"));
+    const diarioP6L = calcularResumenDiarioTurnos(state, calendario, ["2026-01-01"], true);
+    checks.manualN12L = cellText("P6", 1) === "L" && resumenP6L.noches === nochesP6Antes - 1 && diarioP6L.totalPresencia["2026-01-01"] === 2;
+    await aplicarIncidenciaDesdeModal("P6", 1, "original");
+
+    await aplicarIncidenciaDesdeModal("P8", 1, turnoAction("M"));
 
     await aplicarIncidenciaDesdeModal("P7", 1, "V");
     checks.vacaciones = cellText("P7", 1) === "V" && (await readStateFromIndexedDb()).incidenciasDiarias.some((item) => item.tipoIncidencia === "V");
@@ -585,7 +634,7 @@ async function browserScenarioAfterReload() {
 
     const stateWithIncidences = await readStateFromIndexedDb();
     const backupWithIncidences = crearBackup(stateWithIncidences, await exportDatabaseSnapshot(stateWithIncidences), "2026-01-02T00:00:00.000Z");
-    const exportedIncidences = backupWithIncidences.data.incidenciasDiarias.map((item) => item.tipoIncidencia).sort().join(",");
+    const exportedIncidences = backupWithIncidences.data.incidenciasDiarias.map((item) => item.tipoModificacion === "turno_manual" ? item.turnoManualCodigo : item.tipoIncidencia).sort().join(",");
     await clearState();
     state = normalizarEstado(crearEstadoInicial());
     await saveState(state);
@@ -597,20 +646,29 @@ async function browserScenarioAfterReload() {
       guardarEstado: saveState,
     });
     recalcAndRender();
-    await waitFor(() => cellText("P6", 1) === "LD" && cellText("P7", 1) === "V");
-    const importedIncidences = (await readStateFromIndexedDb()).incidenciasDiarias.map((item) => item.tipoIncidencia).sort().join(",");
-    checks.jsonImport = exportedIncidences === "LD,V" && importedIncidences === "LD,V";
+    await waitFor(() => cellText("P6", 1) === "LD" && cellText("P7", 1) === "V" && cellText("P8", 1) === "M");
+    const importedIncidences = (await readStateFromIndexedDb()).incidenciasDiarias.map((item) => item.tipoModificacion === "turno_manual" ? item.turnoManualCodigo : item.tipoIncidencia).sort().join(",");
+    checks.jsonImport = exportedIncidences === "LD,M,V" && importedIncidences === "LD,M,V";
 
     const originalPrint = window.print;
     window.print = () => {};
     try {
       document.querySelector('[data-action="print-calendar-month"]').click();
       await waitFor(() => document.querySelector(".print-root .print-document"));
-      checks.printAfterIncidences = document.querySelector(".print-root")?.textContent?.includes("LD") && document.querySelector(".print-root")?.textContent?.includes("V");
+      checks.printAfterIncidences = document.querySelector(".print-root")?.textContent?.includes("LD")
+        && document.querySelector(".print-root")?.textContent?.includes("V")
+        && document.querySelector(".print-root")?.textContent?.includes("Los turnos modificados manualmente");
     } finally {
       window.print = originalPrint;
       clearPrintRoot();
     }
+
+    openCell("P8", 1);
+    await waitFor(() => document.querySelector(".modal-card"));
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    document.activeElement?.blur();
+    document.querySelector(".modal-card").scrollTop = 0;
+    window.scrollTo(0, 0);
 
     return checks;
   }
@@ -628,6 +686,12 @@ async function browserScenarioAfterReload() {
     if (!input) throw new Error(`No existe la opcion de incidencia ${value}`);
     input.checked = true;
     input.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function turnoAction(codigo) {
+    const turno = state.turnos.find((item) => item.codigo === codigo && item.activo !== false);
+    if (!turno) throw new Error(`No existe el turno activo ${codigo}`);
+    return `turno:${turno.id}`;
   }
 
   function openCell(nombre, diaMes) {

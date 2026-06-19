@@ -10,7 +10,7 @@ import { migrarEstado, normalizarEstado } from "../src/js/domain/migracion.js";
 import { moverProfesional, obtenerProfesionalesOrdenados } from "../src/js/domain/orden.js";
 import { calcularResumenDiarioTurnos } from "../src/js/domain/resumenDiario.js";
 import { crearBackup, prepararImportacionBackup, sustituirEstadoConRollback, validarBackup } from "../src/js/services/backupService.js";
-import { aplicarIncidencia, calcularSaldosAusencias, eliminarIncidencia, resolverDiaConIncidencia } from "../src/js/domain/incidencias.js";
+import { aplicarIncidencia, aplicarTurnoManual, calcularSaldosAusencias, eliminarIncidencia, resolverDiaConIncidencia } from "../src/js/domain/incidencias.js";
 import { generarHtmlImpresionParaPruebas } from "../src/js/ui/print.js";
 
 globalThis.crypto ??= { randomUUID: () => `test-${Math.random()}` };
@@ -144,7 +144,7 @@ test("migracion: conserva datos antiguos y anade orden/presencia/resumen", () =>
     profesionales: [profesional("Ana", "", "2026-01-01", "2026-12-31", 7, 100, "diurno", { ordenVisual: undefined })],
   });
   migrarEstado(state);
-  assert.equal(state.schemaVersion, 2);
+  assert.equal(state.schemaVersion, 3);
   assert.equal(state.config.mostrarLibresResumen, true);
   assert.equal(state.profesionales[0].ordenVisual, 1);
   assert.equal(state.profesionales[0].posicionInicial, 0);
@@ -271,6 +271,133 @@ test("incidencias: exportar e importar conserva cuadrante, horas y saldos", () =
   assert.deepEqual(calcularResumenGlobal(importado, calImportado), calcularResumenGlobal(state, cal));
 });
 
+test("turno manual: D12 cambiado a M recalcula celda, horas y resumen diario", () => {
+  const state = estadoIncidencia(["D12"]);
+  const profesional = state.profesionales[0];
+  const cal = generarCalendarioAnual(state);
+  const antes = calcularResumenGlobal(state, cal)[0];
+  aplicarTurnoManual(state, profesional, cal[profesional.id]["2026-01-01"], state.turnos.find((item) => item.codigo === "M"));
+  const dia = resolverDiaConIncidencia(state, profesional, cal[profesional.id]["2026-01-01"], "2026-01-01");
+  const despues = calcularResumenGlobal(state, cal)[0];
+  const diario = calcularResumenDiarioTurnos(state, cal, ["2026-01-01"], true);
+  assert.equal(dia.codigoBase, "D12");
+  assert.equal(dia.codigoVisible, "M");
+  assert.equal(dia.horasBase, 12);
+  assert.equal(dia.horasEfectivas, 7);
+  assert.equal(state.incidenciasDiarias[0].tipoModificacion, "turno_manual");
+  assert.equal(state.incidenciasDiarias[0].horasTurnoManual, 7);
+  assert.equal(state.incidenciasDiarias[0].grupoCoberturaTurnoManual, "manana");
+  assert.equal(state.incidenciasDiarias[0].cuentaComoPresenciaTurnoManual, true);
+  assert.equal(antes.horasMes[0] - despues.horasMes[0], 5);
+  assert.equal(antes.total - despues.total, 5);
+  assert.equal(diario.filas.find((fila) => fila.codigo === "M").conteos["2026-01-01"], 1);
+  assert.equal(diario.filas.find((fila) => fila.codigo === "D12").conteos["2026-01-01"], 0);
+  assert.equal(diario.totalPresencia["2026-01-01"], 1);
+});
+
+test("turno manual: N12 cambiado a V elimina presencia y noche efectiva", () => {
+  const state = estadoIncidencia(["N12", "L", "L", "L", "L", "L", "L", "L"]);
+  const profesional = state.profesionales[0];
+  profesional.modalidad = "rotatorio";
+  const cal = generarCalendarioAnual(state);
+  const antes = calcularResumenGlobal(state, cal)[0];
+  aplicarIncidencia(state, profesional, cal[profesional.id]["2026-01-01"], "V");
+  const dia = resolverDiaConIncidencia(state, profesional, cal[profesional.id]["2026-01-01"], "2026-01-01");
+  const despues = calcularResumenGlobal(state, cal)[0];
+  const diario = calcularResumenDiarioTurnos(state, cal, ["2026-01-01"], true);
+  assert.equal(dia.codigoVisible, "V");
+  assert.equal(dia.horasEfectivas, 0);
+  assert.equal(dia.horasVacaciones, 12);
+  assert.equal(dia.cuentaComoPresencia, false);
+  assert.equal(despues.noches, antes.noches - 1);
+  assert.notEqual(despues.jornada.objetivo, antes.jornada.objetivo);
+  assert.equal(diario.totalPresencia["2026-01-01"], 0);
+});
+
+test("turno manual: D12 cambiado a N12 suma noche sin alterar horas", () => {
+  const state = estadoIncidencia(["D12"]);
+  const profesional = state.profesionales[0];
+  profesional.modalidad = "rotatorio";
+  const cal = generarCalendarioAnual(state);
+  const antes = calcularResumenGlobal(state, cal)[0];
+  aplicarTurnoManual(state, profesional, cal[profesional.id]["2026-01-01"], state.turnos.find((item) => item.codigo === "N12"));
+  const dia = resolverDiaConIncidencia(state, profesional, cal[profesional.id]["2026-01-01"], "2026-01-01");
+  const despues = calcularResumenGlobal(state, cal)[0];
+  assert.equal(dia.codigoVisible, "N12");
+  assert.equal(dia.horasEfectivas, 12);
+  assert.equal(dia.cuentaComoPresencia, true);
+  assert.equal(dia.esNoche, true);
+  assert.equal(despues.total, antes.total);
+  assert.equal(despues.noches, 1);
+  assert.notEqual(despues.jornada.objetivo, antes.jornada.objetivo);
+});
+
+test("turno manual: N12 cambiado a L elimina horas, presencia y noche", () => {
+  const state = estadoIncidencia(["N12", "L", "L", "L", "L", "L", "L", "L"]);
+  const profesional = state.profesionales[0];
+  profesional.modalidad = "rotatorio";
+  const cal = generarCalendarioAnual(state);
+  const antes = calcularResumenGlobal(state, cal)[0];
+  aplicarTurnoManual(state, profesional, cal[profesional.id]["2026-01-01"], state.turnos.find((item) => item.codigo === "L"));
+  const dia = resolverDiaConIncidencia(state, profesional, cal[profesional.id]["2026-01-01"], "2026-01-01");
+  const despues = calcularResumenGlobal(state, cal)[0];
+  const diario = calcularResumenDiarioTurnos(state, cal, ["2026-01-01"], true);
+  assert.equal(dia.codigoVisible, "L");
+  assert.equal(dia.horasEfectivas, 0);
+  assert.equal(dia.cuentaComoPresencia, false);
+  assert.equal(dia.esNoche, false);
+  assert.equal(despues.total, antes.total - 12);
+  assert.equal(despues.noches, antes.noches - 1);
+  assert.equal(diario.filas.find((fila) => fila.codigo === "L").conteos["2026-01-01"], 1);
+  assert.equal(diario.totalPresencia["2026-01-01"], 0);
+});
+
+test("turnos manuales: exportar e importar conserva cambios, resumen e impresion", () => {
+  const state = estadoIncidencia(["D12", "N12", "M", "L"]);
+  const profesional = state.profesionales[0];
+  profesional.modalidad = "rotatorio";
+  const cal = generarCalendarioAnual(state);
+  aplicarTurnoManual(state, profesional, cal[profesional.id]["2026-01-01"], state.turnos.find((item) => item.codigo === "M"));
+  aplicarIncidencia(state, profesional, cal[profesional.id]["2026-01-02"], "V");
+  aplicarTurnoManual(state, profesional, cal[profesional.id]["2026-01-03"], state.turnos.find((item) => item.codigo === "N12"));
+  aplicarTurnoManual(state, profesional, cal[profesional.id]["2026-01-04"], state.turnos.find((item) => item.codigo === "L"));
+  const backup = crearBackup(state);
+  assert.deepEqual(validarBackup(backup), []);
+  const importado = prepararImportacionBackup(JSON.parse(JSON.stringify(backup))).data;
+  const calImportado = generarCalendarioAnual(importado);
+  const codigos = ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04"].map((fecha) => resolverDiaConIncidencia(importado, importado.profesionales[0], calImportado[profesional.id][fecha], fecha).codigoVisible);
+  assert.deepEqual(codigos, ["M", "V", "N12", "L"]);
+  assert.deepEqual(calcularResumenGlobal(importado, calImportado), calcularResumenGlobal(state, cal));
+  assert.deepEqual(
+    calcularResumenDiarioTurnos(importado, calImportado, ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04"], true),
+    calcularResumenDiarioTurnos(state, cal, ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04"], true),
+  );
+  const html = generarHtmlImpresionParaPruebas("mes", importado, calImportado, calcularResumenGlobal(importado, calImportado), 0);
+  assert.ok(html.includes("M"));
+  assert.ok(html.includes("N12"));
+  assert.ok(html.includes("Los turnos modificados manualmente"));
+});
+
+test("migracion: incidencias V y LD antiguas conservan compatibilidad", () => {
+  const state = estadoIncidencia(["D12"]);
+  state.incidenciasDiarias = [{
+    id: "legacy-v",
+    profesionalId: state.profesionales[0].id,
+    fecha: "2026-01-01",
+    escenarioId: "escenario-oficial",
+    turnoBaseId: state.turnos.find((item) => item.codigo === "D12").id,
+    codigoTurnoBase: "D12",
+    horasTurnoBase: 12,
+    tipoIncidencia: "V",
+  }];
+  migrarEstado(state);
+  const cal = generarCalendarioAnual(state);
+  const dia = resolverDiaConIncidencia(state, state.profesionales[0], cal[state.profesionales[0].id]["2026-01-01"], "2026-01-01");
+  assert.equal(state.incidenciasDiarias[0].tipoModificacion, "incidencia");
+  assert.equal(dia.codigoVisible, "V");
+  assert.equal(dia.horasVacaciones, 12);
+});
+
 test("persistencia logica: normaliza importacion sin perder orden visual", () => {
   const state = baseState();
   state.profesionales = [
@@ -334,7 +461,7 @@ test("copias JSON: acepta copia legacy compatible y aplica migracion", () => {
   };
   const preparado = prepararImportacionBackup(JSON.parse(JSON.stringify(legacyBackup)));
   assert.deepEqual(preparado.errores, []);
-  assert.equal(preparado.data.schemaVersion, 2);
+  assert.equal(preparado.data.schemaVersion, 3);
   assert.equal(preparado.data.config.mostrarLibresResumen, true);
   assert.equal(preparado.data.profesionales[0].ordenVisual, 1);
 });

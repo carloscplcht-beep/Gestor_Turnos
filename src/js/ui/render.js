@@ -3,7 +3,7 @@ import { MODALIDADES, PERFIL_NORMATIVO_SESCAM_2019 } from "../domain/normativa.j
 import { resumenCiclo } from "../domain/ciclos.js";
 import { obtenerProfesionalesOrdenados, obtenerTurnosOrdenados } from "../domain/orden.js";
 import { calcularResumenDiarioTurnos } from "../domain/resumenDiario.js";
-import { resolverDiaConIncidencia, TIPOS_INCIDENCIA } from "../domain/incidencias.js";
+import { resolverDiaConIncidencia, TIPOS_INCIDENCIA, TIPOS_MODIFICACION } from "../domain/incidencias.js";
 import { monthDates, parseDate, weekdayIndex } from "../utils/dateUtils.js";
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -315,13 +315,12 @@ function tablaCuadrante(state, calendario, selectedMonth) {
       const diaBase = calendario[p.id]?.[fecha] || {};
       const dia = resolverDiaConIncidencia(state, p, diaBase, fecha);
       total += Number((dia.horasEfectivas ?? dia.horas) || 0);
-      const turno = state.turnos.find((t) => t.codigo === dia.codigoBase || t.codigo === dia.codigo);
+      const turno = state.turnos.find((t) => t.id === dia.turnoId || t.codigo === dia.codigoAplicado || t.codigo === dia.codigo);
       const wd = weekdayIndex(fecha);
       const editable = diaBase.codigo && !diaBase.fueraContrato && !diaBase.sinCiclo;
-      const title = dia.incidencia
-        ? `${TIPOS_INCIDENCIA[dia.incidencia.tipoIncidencia].nombre}\nTurno previsto: ${dia.codigoBase}\nHoras descontadas: ${dia.horasVacaciones || dia.horasLibreDisposicion}`
-        : (turno ? `${turno.nombre} · ${turno.inicio || ""}-${turno.fin || ""} · ${turno.horasComputables} h` : "Fuera de contrato o sin ciclo");
-      return `<td class="shift-cell ${dia.incidencia ? "incidence-cell" : ""} ${wd === 0 || wd === 6 ? "weekend" : ""} ${fecha === today ? "today" : ""}" ${editable ? `data-action="edit-incidencia" data-id="${p.id}" data-fecha="${fecha}"` : ""} style="background:${dia.colorIncidencia || turno?.color || "#fff"}" title="${escapeAttr(title)}">${escapeHtml(dia.codigoVisible || dia.codigo || "")}</td>`;
+      const esTurnoManual = dia.incidencia?.tipoModificacion === TIPOS_MODIFICACION.TURNO_MANUAL || Boolean(dia.incidencia?.turnoManualCodigo);
+      const title = tooltipDiaCuadrante(dia, turno, esTurnoManual);
+      return `<td class="shift-cell ${dia.incidencia ? "modified-cell" : ""} ${esTurnoManual ? "manual-shift-cell" : dia.incidencia ? "incidence-cell" : ""} ${wd === 0 || wd === 6 ? "weekend" : ""} ${fecha === today ? "today" : ""}" ${editable ? `data-action="edit-incidencia" data-id="${p.id}" data-fecha="${fecha}"` : ""} style="background:${dia.colorAplicado || dia.colorIncidencia || turno?.color || "#fff"}" title="${escapeAttr(title)}">${escapeHtml(dia.codigoVisible || dia.codigo || "")}</td>`;
     }).join("");
     return `<tr><td>${escapeHtml(p.nombre || p.identificador)}</td>${cells}<td><strong>${fmt(total)}</strong></td></tr>`;
   }).join("");
@@ -365,8 +364,8 @@ function renderJornada(state, resumenes) {
           <button type="button" class="secondary" data-action="print-summary-individual">Imprimir resumen individual</button>
         </div>
       </div>
-      <div class="notice jornada-note">Las horas base previstas corresponden al turno originalmente proyectado. Las vacaciones y libres de disposición se descuentan como ausencia sobre el turno previsto. Las horas efectivas muestran la jornada programada tras aplicar esas incidencias.</div>
-      <div class="table-wrap"><table><thead><tr><th>Profesional</th><th>Modalidad</th><th>Noches base</th><th>Jornada normativa</th><th>%</th><th>Objetivo</th><th>Base prevista</th><th>Vacaciones</th><th>LD</th><th>Efectivas</th><th>Diferencia</th><th>Estado</th><th>Saldo vacaciones</th><th>Saldo LD</th><th>Alertas</th></tr></thead><tbody>${rows || emptyRow(15)}</tbody></table></div>
+      <div class="notice jornada-note">Las horas base previstas corresponden al turno proyectado por el ciclo. Las horas efectivas, noches, presencia y jornada objetivo se recalculan con el turno finalmente aplicado tras ausencias o cambios manuales.</div>
+      <div class="table-wrap"><table><thead><tr><th>Profesional</th><th>Modalidad</th><th>Noches efectivas</th><th>Jornada normativa</th><th>%</th><th>Objetivo</th><th>Base prevista</th><th>Vacaciones</th><th>LD</th><th>Efectivas</th><th>Diferencia</th><th>Estado</th><th>Saldo vacaciones</th><th>Saldo LD</th><th>Alertas</th></tr></thead><tbody>${rows || emptyRow(15)}</tbody></table></div>
     </div>
   `;
 }
@@ -417,7 +416,7 @@ function renderIncidenceModal(modal) {
       <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="incidenceModalTitle">
         <div class="modal-header">
           <div>
-            <h2 id="incidenceModalTitle">Editar incidencia</h2>
+            <h2 id="incidenceModalTitle">Editar turno del día</h2>
             <p>${escapeHtml(modal.profesionalNombre)} · ${formatIsoDate(modal.fecha)}</p>
           </div>
           <button type="button" class="ghost modal-close" data-action="close-incidence-modal" aria-label="Cerrar">Cerrar</button>
@@ -425,12 +424,23 @@ function renderIncidenceModal(modal) {
         <div class="modal-summary">
           <div><span>Turno previsto</span><strong>${escapeHtml(modal.turnoPrevisto || "-")}</strong></div>
           <div><span>Horas previstas</span><strong>${fmt(modal.horasTurno)} h</strong></div>
+          <div><span>Turno aplicado</span><strong>${escapeHtml(modal.turnoAplicado || "-")}</strong></div>
+          <div><span>Horas aplicadas</span><strong>${fmt(modal.horasAplicadas)} h</strong></div>
+          <div><span>Presencia</span><strong>${modal.cuentaComoPresenciaAplicada ? "Sí" : "No"}</strong></div>
+          <div><span>Noche efectiva</span><strong>${modal.esNocheAplicada ? "Sí" : "No"}</strong></div>
         </div>
         <fieldset class="incidence-options">
           <legend>Acción</legend>
           ${incidenceOption("original", "Mantener turno original", accion)}
-          ${incidenceOption("V", "Vacaciones", accion)}
-          ${incidenceOption("LD", "Libre disposición", accion)}
+          ${incidenceOption("V", "Vacaciones · V", accion)}
+          ${incidenceOption("LD", "Libre disposición · LD", accion)}
+          <div class="incidence-option-heading">Turnos activos del catálogo</div>
+          ${(modal.turnosDisponibles || []).map((turno) => incidenceOption(
+            `turno:${turno.id}`,
+            `${turno.codigo} · ${turno.nombre} · ${fmt(turno.horasComputables)} h${turno.activo ? "" : " · Inactivo, actualmente aplicado"}`,
+            accion,
+            turno.color,
+          )).join("")}
         </fieldset>
         <div class="saldo-grid">
           ${saldoCard("Vacaciones", modal.vacaciones)}
@@ -452,8 +462,20 @@ function renderIncidenceModal(modal) {
   `;
 }
 
-function incidenceOption(value, label, current) {
-  return `<label class="incidence-option"><input type="radio" name="incidenceAction" value="${escapeAttr(value)}" ${current === value ? "checked" : ""}> <span>${escapeHtml(label)}</span></label>`;
+function incidenceOption(value, label, current, color = "") {
+  return `<label class="incidence-option"><input type="radio" name="incidenceAction" value="${escapeAttr(value)}" ${current === value ? "checked" : ""}> ${color ? `<i class="shift-swatch" style="background:${escapeAttr(color)}"></i>` : ""}<span>${escapeHtml(label)}</span></label>`;
+}
+
+function tooltipDiaCuadrante(dia, turno, esTurnoManual) {
+  if (!dia.incidencia) return turno ? `${turno.nombre} · ${turno.inicio || ""}-${turno.fin || ""} · ${turno.horasComputables} h` : "Fuera de contrato o sin ciclo";
+  const tipo = esTurnoManual ? "Cambio manual de turno" : TIPOS_INCIDENCIA[dia.incidencia.tipoIncidencia]?.nombre || "Incidencia";
+  return [
+    tipo,
+    `Turno previsto: ${dia.codigoBase || "-"} (${fmt(dia.horasBase)} h)`,
+    `Turno aplicado: ${dia.codigoVisible || "-"} (${fmt(dia.horasEfectivas)} h)`,
+    `Presencia: ${dia.cuentaComoPresencia ? "Sí" : "No"}`,
+    `Noche efectiva: ${dia.esNoche ? "Sí" : "No"}`,
+  ].join("\n");
 }
 
 function saldoCard(label, saldo = {}) {

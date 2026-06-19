@@ -5,7 +5,7 @@ import { normalizarFechaIso } from "../utils/dateUtils.js";
 export const BACKUP_APPLICATION_NAME = "Gestor Local de Turnos de Enfermería";
 export const BACKUP_LEGACY_APP_ID = "gestor-turnos-enfermeria";
 export const BACKUP_SCHEMA_VERSION = 1;
-export const APP_VERSION = "0.1.2";
+export const APP_VERSION = "0.1.3";
 
 export function crearBackup(state, databaseSnapshot = null, exportedAt = new Date().toISOString()) {
   const data = migrarEstado(structuredClone(state));
@@ -184,7 +184,16 @@ function validarEstado(data, errores) {
     if (!incidencia.id) errores.push("Hay una incidencia sin identificador.");
     if (!profesionales.has(incidencia.profesionalId)) errores.push(`Incidencia con profesional inexistente: ${incidencia.profesionalId}.`);
     validarFecha(incidencia.fecha, `Fecha no válida en incidencia ${incidencia.id || ""}.`, errores);
-    if (!["V", "LD"].includes(incidencia.tipoIncidencia)) errores.push(`Tipo de incidencia no válido: ${incidencia.tipoIncidencia}.`);
+    const tipoModificacion = incidencia.tipoModificacion || (incidencia.turnoManualCodigo ? "turno_manual" : "incidencia");
+    if (!["incidencia", "turno_manual"].includes(tipoModificacion)) errores.push(`Tipo de modificación no válido: ${tipoModificacion}.`);
+    if (tipoModificacion === "incidencia" && !["V", "LD"].includes(incidencia.tipoIncidencia)) errores.push(`Tipo de incidencia no válido: ${incidencia.tipoIncidencia}.`);
+    if (tipoModificacion === "turno_manual") {
+      if (!incidencia.turnoManualCodigo) errores.push(`Modificación manual sin código de turno: ${incidencia.id || ""}.`);
+      if (!Number.isFinite(Number(incidencia.horasTurnoManual)) || Number(incidencia.horasTurnoManual) < 0) errores.push(`Horas de turno manual no válidas en modificación ${incidencia.id || ""}.`);
+      if (!incidencia.grupoCoberturaTurnoManual) errores.push(`Modificación manual sin grupo de cobertura: ${incidencia.id || ""}.`);
+      if (!/^#[0-9a-f]{6}$/i.test(String(incidencia.colorTurnoManual || ""))) errores.push(`Color de turno manual no válido en modificación ${incidencia.id || ""}.`);
+      if (typeof incidencia.cuentaComoPresenciaTurnoManual !== "boolean") errores.push(`Presencia de turno manual no válida en modificación ${incidencia.id || ""}.`);
+    }
     if (!incidencia.codigoTurnoBase) errores.push(`Incidencia sin código de turno base: ${incidencia.id || ""}.`);
     if (!Number.isFinite(Number(incidencia.horasTurnoBase)) || Number(incidencia.horasTurnoBase) < 0) errores.push(`Horas de turno base no válidas en incidencia ${incidencia.id || ""}.`);
     const clave = `${incidencia.profesionalId}|${incidencia.fecha}|${incidencia.escenarioId || "escenario-oficial"}`;

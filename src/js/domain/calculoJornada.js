@@ -1,7 +1,7 @@
 import { monthDates } from "../utils/dateUtils.js";
 import { calcularJornadaObjetivo, requiereAdvertenciaProrrata, roundHours } from "./normativa.js";
 import { obtenerProfesionalesOrdenados } from "./orden.js";
-import { calcularSaldosAusencias, resolverDiaConIncidencia } from "./incidencias.js";
+import { calcularSaldosAusencias, resolverDiaConIncidencia, TIPOS_MODIFICACION } from "./incidencias.js";
 
 export function calcularResumenProfesional(profesional, calendario, state) {
   const year = Number(state.config.anioActivo);
@@ -25,7 +25,10 @@ export function calcularResumenProfesional(profesional, calendario, state) {
       horasLibreDisposicion += Number(dia.horasLibreDisposicion || 0);
       horas += Number(dia.horasEfectivas ?? dia.horas ?? 0);
       if (dia?.esNoche) noches += 1;
-      if (diaBase?.codigo) contarDesglose(diaBase, desglose);
+      const cuentaTurnoAplicado = !dia.incidencia
+        || dia.incidencia.tipoModificacion === TIPOS_MODIFICACION.TURNO_MANUAL
+        || Boolean(dia.incidencia.turnoManualCodigo);
+      if (cuentaTurnoAplicado && dia.codigoAplicado) contarDesglose(dia, desglose);
     }
     horasMes.push(roundHours(horas));
     total += horas;

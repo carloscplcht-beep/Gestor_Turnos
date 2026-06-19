@@ -5,7 +5,7 @@ import { crearConfiguracionAusenciasBase } from "./incidencias.js";
 export function crearEstadoInicial() {
   const turnos = crearTurnosIniciales();
   return {
-    schemaVersion: 1,
+    schemaVersion: 3,
     config: {
       unidad: "Unidad de Enfermeria",
       hospital: "Hospital",

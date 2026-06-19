@@ -1,5 +1,10 @@
 export const ESCENARIO_OFICIAL = "escenario-oficial";
 
+export const TIPOS_MODIFICACION = {
+  INCIDENCIA: "incidencia",
+  TURNO_MANUAL: "turno_manual",
+};
+
 export const TIPOS_INCIDENCIA = {
   V: {
     codigo: "V",
@@ -52,7 +57,46 @@ export function aplicarIncidencia(state, profesional, diaBase, tipoIncidencia, e
     turnoBaseId: diaBase.turnoId || "",
     codigoTurnoBase: diaBase.codigo,
     horasTurnoBase: Number(diaBase.horas || 0),
+    tipoModificacion: TIPOS_MODIFICACION.INCIDENCIA,
     tipoIncidencia,
+    turnoManualId: "",
+    turnoManualCodigo: "",
+    turnoManualNombre: "",
+    horasTurnoManual: 0,
+    grupoCoberturaTurnoManual: "",
+    colorTurnoManual: "",
+    cuentaComoPresenciaTurnoManual: false,
+    creadoEn: existente?.creadoEn || now,
+    actualizadoEn: now,
+  };
+  if (existente) Object.assign(existente, payload);
+  else state.incidenciasDiarias.push(payload);
+  return payload;
+}
+
+export function aplicarTurnoManual(state, profesional, diaBase, turnoManual, escenarioId = ESCENARIO_OFICIAL, now = new Date().toISOString()) {
+  if (!diaBase?.codigo || diaBase.fueraContrato || diaBase.sinCiclo) throw new Error("No se puede modificar una celda sin turno generado.");
+  if (!profesional?.activo) throw new Error("No se puede modificar el turno de un profesional inactivo.");
+  if (!turnoManual?.id || !turnoManual?.codigo || turnoManual.activo === false) throw new Error("El turno manual seleccionado no es valido o no esta activo.");
+  state.incidenciasDiarias ??= [];
+  const existente = obtenerIncidencia(state, profesional.id, diaBase.fecha, escenarioId);
+  const payload = {
+    id: existente?.id || crypto.randomUUID(),
+    profesionalId: profesional.id,
+    fecha: diaBase.fecha,
+    escenarioId,
+    turnoBaseId: diaBase.turnoId || "",
+    codigoTurnoBase: diaBase.codigo,
+    horasTurnoBase: Number(diaBase.horas || 0),
+    tipoModificacion: TIPOS_MODIFICACION.TURNO_MANUAL,
+    tipoIncidencia: "",
+    turnoManualId: turnoManual.id,
+    turnoManualCodigo: turnoManual.codigo,
+    turnoManualNombre: turnoManual.nombre || turnoManual.codigo,
+    horasTurnoManual: Number(turnoManual.horasComputables || 0),
+    grupoCoberturaTurnoManual: turnoManual.grupoCobertura || "otro",
+    colorTurnoManual: turnoManual.color || "#ffffff",
+    cuentaComoPresenciaTurnoManual: Boolean(turnoManual.cuentaComoPresencia),
     creadoEn: existente?.creadoEn || now,
     actualizadoEn: now,
   };
@@ -74,10 +118,12 @@ export function eliminarIncidencia(state, profesionalId, fecha, escenarioId = ES
 export function resolverDiaConIncidencia(state, profesional, diaBase, fecha) {
   const incidencia = obtenerIncidencia(state, profesional.id, fecha);
   const horasBaseActuales = Number(diaBase?.horas || 0);
+  const turnoBase = (state.turnos || []).find((turno) => turno.id === diaBase?.turnoId || String(turno.codigo).toUpperCase() === String(diaBase?.codigo || "").toUpperCase());
   if (!incidencia || !diaBase?.codigo || diaBase.fueraContrato || diaBase.sinCiclo) {
     return {
       ...diaBase,
       codigoBase: diaBase?.codigo || "",
+      codigoAplicado: diaBase?.codigo || "",
       horasBase: horasBaseActuales,
       horasEfectivas: horasBaseActuales,
       horasVacaciones: 0,
@@ -85,14 +131,19 @@ export function resolverDiaConIncidencia(state, profesional, diaBase, fecha) {
       incidencia: null,
       codigoVisible: diaBase?.codigo || "",
       colorIncidencia: "",
-      cuentaComoPresencia: true,
+      colorAplicado: turnoBase?.color || "",
+      cuentaComoPresencia: Boolean(turnoBase?.cuentaComoPresencia),
     };
   }
+  const esTurnoManual = incidencia.tipoModificacion === TIPOS_MODIFICACION.TURNO_MANUAL || Boolean(incidencia.turnoManualCodigo);
+  if (esTurnoManual) return resolverTurnoManual(state, diaBase, incidencia, horasBaseActuales);
   const tipo = TIPOS_INCIDENCIA[incidencia.tipoIncidencia];
+  if (!tipo) return resolverDiaConIncidencia({ ...state, incidenciasDiarias: [] }, profesional, diaBase, fecha);
   const horasDescontadas = horasBaseActuales;
   return {
     ...diaBase,
     codigoBase: diaBase.codigo,
+    codigoAplicado: tipo.codigo,
     horasBase: horasBaseActuales,
     horas: 0,
     horasEfectivas: 0,
@@ -107,8 +158,49 @@ export function resolverDiaConIncidencia(state, profesional, diaBase, fecha) {
     },
     codigoVisible: tipo.codigo,
     colorIncidencia: tipo.color,
+    colorAplicado: tipo.color,
     cuentaComoPresencia: false,
+    grupoCobertura: "",
     esNoche: false,
+  };
+}
+
+function resolverTurnoManual(state, diaBase, modificacion, horasBaseActuales) {
+  const turnoCatalogo = (state.turnos || []).find((turno) => (
+    turno.id === modificacion.turnoManualId
+    || String(turno.codigo).toUpperCase() === String(modificacion.turnoManualCodigo || "").toUpperCase()
+  ));
+  const codigo = turnoCatalogo?.codigo || modificacion.turnoManualCodigo || "";
+  const horas = Number(turnoCatalogo?.horasComputables ?? modificacion.horasTurnoManual ?? 0);
+  const grupoCobertura = turnoCatalogo?.grupoCobertura || modificacion.grupoCoberturaTurnoManual || "otro";
+  const color = turnoCatalogo?.color || modificacion.colorTurnoManual || "#ffffff";
+  const cuentaComoPresencia = turnoCatalogo
+    ? Boolean(turnoCatalogo.cuentaComoPresencia)
+    : Boolean(modificacion.cuentaComoPresenciaTurnoManual);
+  return {
+    ...diaBase,
+    turnoId: turnoCatalogo?.id || modificacion.turnoManualId || "",
+    codigo,
+    codigoBase: diaBase.codigo,
+    codigoAplicado: codigo,
+    horasBase: horasBaseActuales,
+    horas,
+    horasEfectivas: horas,
+    horasVacaciones: 0,
+    horasLibreDisposicion: 0,
+    grupoCobertura,
+    esNoche: grupoCobertura === "noche",
+    cuentaComoPresencia,
+    codigoVisible: codigo,
+    colorIncidencia: "",
+    colorAplicado: color,
+    incidencia: {
+      ...modificacion,
+      codigoTurnoBaseActual: diaBase.codigo,
+      horasTurnoBaseActual: horasBaseActuales,
+      horasOriginalesIncidencia: Number(modificacion.horasTurnoBase || 0),
+      horasAlteradas: Number(modificacion.horasTurnoBase || 0) !== horasBaseActuales,
+    },
   };
 }
 
